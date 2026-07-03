@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quản lý người dùng — TBit SmartID</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="/">📋 TBit SmartID</a>
+  <div class="actions"><a href="/">← Danh sách phiên</a></div>
+</div>
+
+<div class="container">
+  <h2 style="font-size:20px;margin-bottom:14px;">Quản lý người dùng</h2>
+  <div id="alert" class="alert hidden"></div>
+
+  <div class="card">
+    <h2>Thêm người dùng</h2>
+    <form id="addForm" class="row" style="align-items:flex-end;">
+      <div style="flex:1;min-width:140px;">
+        <label>Tên đăng nhập</label>
+        <input id="newUsername" style="margin-bottom:0;" required>
+      </div>
+      <div style="flex:1;min-width:140px;">
+        <label>Mật khẩu ban đầu</label>
+        <input id="newPassword" type="text" minlength="6" style="margin-bottom:0;" required>
+      </div>
+      <div style="min-width:120px;">
+        <label>Vai trò</label>
+        <select id="newRole" style="margin-bottom:0;">
+          <option value="user">Người dùng</option>
+          <option value="admin">Quản trị</option>
+        </select>
+      </div>
+      <button class="btn" type="submit">＋ Thêm</button>
+    </form>
+    <p class="muted mt">Người dùng mới sẽ được yêu cầu đổi mật khẩu khi đăng nhập lần đầu.</p>
+  </div>
+
+  <div class="card">
+    <h2>Danh sách người dùng</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Tên đăng nhập</th><th>Vai trò</th><th>Ngày tạo</th><th></th></tr></thead>
+      <tbody id="userBody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+async function loadUsers() {
+  const users = await api('/api/users');
+  el('userBody').innerHTML = users.map((u) => `
+    <tr>
+      <td><b>${esc(u.username)}</b></td>
+      <td>${u.role === 'admin' ? '<span class="badge closed">Quản trị</span>' : '<span class="badge draft">Người dùng</span>'}</td>
+      <td class="muted">${esc(u.created_at)}</td>
+      <td style="text-align:right;white-space:nowrap;">
+        <button class="btn secondary small" onclick="resetPassword(${u.id}, '${esc(u.username)}')">Đặt lại mật khẩu</button>
+        <button class="btn danger small" onclick="removeUser(${u.id}, '${esc(u.username)}')">Xoá</button>
+      </td>
+    </tr>`).join('');
+}
+
+el('addForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  clearAlert('alert');
+  try {
+    await api('/api/users', { method: 'POST', body: {
+      username: el('newUsername').value, password: el('newPassword').value, role: el('newRole').value,
+    }});
+    el('newUsername').value = ''; el('newPassword').value = '';
+    showAlert('alert', 'Đã tạo người dùng', 'success');
+    loadUsers();
+  } catch (e) { showAlert('alert', e.message); }
+});
+
+async function resetPassword(id, username) {
+  const pw = prompt(`Mật khẩu mới cho "${username}" (ít nhất 6 ký tự):`);
+  if (!pw) return;
+  clearAlert('alert');
+  try {
+    await api(`/api/users/${id}/password`, { method: 'PUT', body: { password: pw } });
+    showAlert('alert', `Đã đặt lại mật khẩu cho ${username}`, 'success');
+  } catch (e) { showAlert('alert', e.message); }
+}
+
+async function removeUser(id, username) {
+  if (!confirm(`Xoá người dùng "${username}"?`)) return;
+  clearAlert('alert');
+  try { await api(`/api/users/${id}`, { method: 'DELETE' }); loadUsers(); }
+  catch (e) { showAlert('alert', e.message); }
+}
+
+loadUsers().catch((e) => showAlert('alert', e.message));
+</script>
+</body>
+</html>

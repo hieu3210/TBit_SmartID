@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Điểm danh sự kiện — TBit SmartID</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="checkin-page">
+  <div class="event-name" id="eventName">…</div>
+  <div class="event-sub">Nhập thông tin để xác nhận có mặt</div>
+
+  <!-- Form điểm danh -->
+  <div class="card" id="formCard">
+    <div id="alert" class="alert hidden"></div>
+    <form id="form">
+      <label for="cccd">Số CCCD (12 số)</label>
+      <input id="cccd" inputmode="numeric" pattern="[0-9]*" maxlength="12" placeholder="001099012345"
+             autocomplete="off" required>
+      <label for="phone">Số điện thoại</label>
+      <input id="phone" inputmode="tel" maxlength="12" placeholder="0912345678" autocomplete="tel" required>
+      <button class="btn full big" type="submit" id="btnSubmit">✓ Điểm danh</button>
+    </form>
+  </div>
+
+  <!-- Màn hình thành công -->
+  <div class="card success-screen hidden" id="successCard">
+    <div class="icon" id="successIcon">✓</div>
+    <h2 id="successName"></h2>
+    <div class="sub" id="successUnit"></div>
+    <p class="mt" id="successMsg"></p>
+    <p class="muted mt" id="successTime"></p>
+  </div>
+
+  <!-- Phiên đóng -->
+  <div class="card success-screen hidden" id="closedCard">
+    <div class="icon warn">!</div>
+    <h2>Phiên điểm danh chưa mở</h2>
+    <p class="sub">Phiên chưa bắt đầu hoặc đã kết thúc điểm danh.<br>Vui lòng liên hệ ban tổ chức.</p>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+const token = location.pathname.split('/').pop();
+const code = new URLSearchParams(location.search).get('c') || '';
+
+async function boot() {
+  try {
+    const info = await api(`/api/checkin/${token}/info`);
+    el('eventName').textContent = info.name;
+    if (info.status !== 'open' && info.status !== 'supplement') {
+      hide('formCard'); show('closedCard');
+    }
+  } catch (e) {
+    el('eventName').textContent = 'Không tìm thấy phiên điểm danh';
+    hide('formCard');
+  }
+}
+
+el('form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  clearAlert('alert');
+  const btn = el('btnSubmit');
+  btn.disabled = true; btn.textContent = 'Đang xử lý…';
+  try {
+    const r = await api(`/api/checkin/${token}`, {
+      method: 'POST',
+      body: { cccd: el('cccd').value, phone: el('phone').value, c: code },
+    });
+    hide('formCard'); show('successCard');
+    el('successName').textContent = r.full_name;
+    el('successUnit').textContent = r.unit || '';
+    el('successMsg').textContent = r.message;
+    el('successTime').textContent = `Thời gian: ${r.checked_in_at}`;
+    if (r.flagged) el('successIcon').classList.add('warn'), el('successIcon').textContent = '!';
+  } catch (e) {
+    showAlert('alert', e.message);
+    btn.disabled = false; btn.textContent = '✓ Điểm danh';
+  }
+});
+
+boot();
+</script>
+</body>
+</html>

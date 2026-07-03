@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TBit SmartID — Điểm danh sự kiện</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="/">📋 TBit SmartID</a>
+  <div class="actions hidden" id="topbarActions">
+    <a href="/users.html" id="linkUsers" class="hidden">Quản lý người dùng</a>
+    <span id="whoami"></span>
+    <button class="link" id="btnLogout">Đăng xuất</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Đăng nhập -->
+  <div id="loginView" class="hidden" style="max-width:400px;margin:48px auto 0;">
+    <div class="card">
+      <h2 style="text-align:center;font-size:22px;">Đăng nhập hệ thống</h2>
+      <p class="muted" style="text-align:center;margin-bottom:18px;">TBit SmartID — Ứng dụng điểm danh sự kiện bằng QR Code</p>
+      <div id="loginAlert" class="alert hidden"></div>
+      <form id="loginForm">
+        <label for="username">Tên đăng nhập</label>
+        <input id="username" autocomplete="username" required>
+        <label for="password">Mật khẩu</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+        <button class="btn full big" type="submit">Đăng nhập</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Đổi mật khẩu bắt buộc -->
+  <div id="changePassView" class="hidden" style="max-width:400px;margin:48px auto 0;">
+    <div class="card">
+      <h2>Đổi mật khẩu</h2>
+      <p class="muted" style="margin-bottom:14px;">Bạn cần đổi mật khẩu trước khi sử dụng hệ thống.</p>
+      <div id="cpAlert" class="alert hidden"></div>
+      <form id="cpForm">
+        <label>Mật khẩu hiện tại</label>
+        <input id="cpOld" type="password" required>
+        <label>Mật khẩu mới (ít nhất 6 ký tự)</label>
+        <input id="cpNew" type="password" minlength="6" required>
+        <label>Nhập lại mật khẩu mới</label>
+        <input id="cpNew2" type="password" minlength="6" required>
+        <button class="btn full" type="submit">Cập nhật mật khẩu</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Danh sách phiên -->
+  <div id="sessionsView" class="hidden">
+    <div class="row" style="margin-bottom:14px;">
+      <h2 style="font-size:20px;">Phiên điểm danh</h2>
+      <div class="spacer"></div>
+      <a class="btn secondary small" href="/api/sessions/template">⬇ Tải template Excel</a>
+      <button class="btn small" id="btnNewSession">＋ Tạo phiên mới</button>
+    </div>
+    <div id="newSessionForm" class="card hidden">
+      <label>Tên sự kiện</label>
+      <input id="newSessionName" placeholder="VD: Hội nghị tổng kết năm 2026" maxlength="120">
+      <div class="row">
+        <button class="btn" id="btnCreateSession">Tạo phiên</button>
+        <button class="btn secondary" id="btnCancelCreate">Huỷ</button>
+      </div>
+    </div>
+    <div id="listAlert" class="alert hidden"></div>
+    <div id="sessionList"></div>
+  </div>
+
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+let me = null;
+
+async function boot() {
+  try {
+    me = await api('/api/me');
+  } catch (e) {
+    show('loginView');
+    return;
+  }
+  afterLogin();
+}
+
+function afterLogin() {
+  hide('loginView');
+  show('topbarActions');
+  el('whoami').textContent = me.username;
+  if (me.role === 'admin') show('linkUsers');
+  if (me.must_change_password) { show('changePassView'); hide('sessionsView'); return; }
+  hide('changePassView');
+  show('sessionsView');
+  loadSessions();
+}
+
+el('loginForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  clearAlert('loginAlert');
+  try {
+    me = await api('/api/login', { method: 'POST', body: { username: el('username').value, password: el('password').value } });
+    afterLogin();
+  } catch (e) { showAlert('loginAlert', e.message); }
+});
+
+el('cpForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  clearAlert('cpAlert');
+  if (el('cpNew').value !== el('cpNew2').value) return showAlert('cpAlert', 'Mật khẩu nhập lại không khớp');
+  try {
+    await api('/api/change-password', { method: 'POST', body: { old_password: el('cpOld').value, new_password: el('cpNew').value } });
+    me.must_change_password = false;
+    showAlert('cpAlert', 'Đã đổi mật khẩu thành công', 'success');
+    setTimeout(afterLogin, 600);
+  } catch (e) { showAlert('cpAlert', e.message); }
+});
+
+el('btnLogout').addEventListener('click', async () => { await api('/api/logout', { method: 'POST' }); location.href = '/'; });
+el('btnNewSession').addEventListener('click', () => { show('newSessionForm'); el('newSessionName').focus(); });
+el('btnCancelCreate').addEventListener('click', () => hide('newSessionForm'));
+
+el('btnCreateSession').addEventListener('click', async () => {
+  clearAlert('listAlert');
+  try {
+    const s = await api('/api/sessions', { method: 'POST', body: { name: el('newSessionName').value } });
+    location.href = `/session.html?id=${s.id}`;
+  } catch (e) { showAlert('listAlert', e.message); }
+});
+
+async function loadSessions() {
+  const sessions = await api('/api/sessions');
+  const list = el('sessionList');
+  if (!sessions.length) {
+    list.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);">Chưa có phiên điểm danh nào.<br>Bấm <b>＋ Tạo phiên mới</b> để bắt đầu.</div>';
+    return;
+  }
+  list.innerHTML = sessions.map((s) => `
+    <div class="card clickable" onclick="location.href='/session.html?id=${s.id}'">
+      <div class="row">
+        <div>
+          <div style="font-weight:700;font-size:16px;">${esc(s.name)}</div>
+          <div class="muted">Tạo ${esc(s.created_at)}${me.role === 'admin' ? ' · ' + esc(s.owner) : ''}</div>
+        </div>
+        <div class="spacer"></div>
+        <div style="text-align:right;">
+          <span class="badge ${s.status}">${STATUS_LABEL[s.status]}</span>
+          <div class="muted mt" style="margin-top:6px;">
+            ${s.stats.total ? `Có mặt <b>${s.stats.present}</b>/${s.stats.total}` : 'Chưa có danh sách'}
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+boot();
+</script>
+</body>
+</html>

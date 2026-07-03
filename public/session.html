@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi tiết phiên — TBit SmartID</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="/">📋 TBit SmartID</a>
+  <div class="actions"><a href="/">← Danh sách phiên</a></div>
+</div>
+
+<div class="container">
+  <div class="row" style="margin-bottom:14px;">
+    <div>
+      <h2 id="sessionName" style="font-size:20px;">…</h2>
+      <span class="badge" id="sessionBadge"></span>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn danger small hidden" id="btnDelete">Xoá phiên</button>
+  </div>
+
+  <div id="alert" class="alert hidden"></div>
+
+  <!-- ===== DRAFT: upload danh sách ===== -->
+  <div id="draftView" class="hidden">
+    <div class="card">
+      <h2>1. Chuẩn bị danh sách</h2>
+      <p class="muted" style="margin-bottom:12px;">
+        Tải <a href="/api/sessions/template">template Excel</a>, điền danh sách rồi kéo-thả file vào ô dưới.
+        Cột CCCD và Số điện thoại cần để dạng <b>Text</b> để không mất số 0 đầu.
+      </p>
+      <div class="dropzone" id="dropzone">
+        📄 Kéo-thả file .xlsx vào đây hoặc <b>bấm để chọn file</b>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden">
+      </div>
+      <div id="uploadResult"></div>
+    </div>
+    <div class="card">
+      <h2>2. Xem trước danh sách (<span id="previewCount">0</span> người)</h2>
+      <div class="table-wrap"><table id="previewTable">
+        <thead><tr><th>STT</th><th>CCCD</th><th>Họ và tên</th><th>Đơn vị</th><th>SĐT</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <button class="btn big full mt" id="btnOpen">▶ Bắt đầu điểm danh</button>
+    </div>
+  </div>
+
+  <!-- ===== OPEN / SUPPLEMENT: QR ===== -->
+  <div id="openView" class="hidden">
+    <div class="card qr-screen">
+      <div id="supplementNote" class="alert warn hidden">Đang <b>điểm danh bổ sung</b> — người đến muộn quét mã dưới đây.</div>
+      <img id="qrImg" alt="QR điểm danh">
+      <div class="qr-note">Quét mã bằng camera điện thoại → nhập CCCD + SĐT.<br>
+        <span class="countdown">Mã tự đổi sau <b id="countdown">–</b> giây (chống điểm danh hộ từ xa)</span></div>
+      <div class="qr-counter"><span id="liveCounter">0</span><small> / <span id="liveTotal">0</span> có mặt</small></div>
+      <button class="btn danger big" id="btnClose">⏹ Kết thúc điểm danh</button>
+    </div>
+    <div class="card hidden" id="flaggedCard">
+      <h2>⚠ Cần xác nhận (<span id="flaggedCount">0</span>)</h2>
+      <p class="muted" style="margin-bottom:10px;">Các lượt điểm danh từ thiết bị đã điểm danh cho người khác — duyệt nếu hợp lệ.</p>
+      <div class="table-wrap"><table id="flaggedTable"><tbody></tbody></table></div>
+    </div>
+    <div class="card" id="manualCard">
+      <h2>Tích tay (BTC xác nhận trực tiếp)</h2>
+      <input id="manualSearch" placeholder="Tìm theo tên / CCCD / đơn vị…">
+      <div class="table-wrap"><table id="manualTable"><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- ===== CLOSED: thống kê ===== -->
+  <div id="closedView" class="hidden">
+    <div class="card">
+      <div class="donut-wrap">
+        <svg class="donut" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="14"/>
+          <circle id="donutArc" cx="60" cy="60" r="50" fill="none" stroke="#057a55" stroke-width="14"
+                  stroke-linecap="round" stroke-dasharray="0 314.16" transform="rotate(-90 60 60)"/>
+          <text class="pct" x="60" y="64" text-anchor="middle" id="donutPct">0%</text>
+          <text class="sub" x="60" y="80" text-anchor="middle">tham gia</text>
+        </svg>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><div class="num green" id="stPresent">0</div><div class="lbl">Có mặt</div></div>
+        <div class="stat"><div class="num red" id="stAbsent">0</div><div class="lbl">Vắng mặt</div></div>
+        <div class="stat"><div class="num" id="stTotal">0</div><div class="lbl">Tổng số</div></div>
+      </div>
+      <div class="row">
+        <button class="btn green" id="btnListPresent">✓ Danh sách có mặt</button>
+        <button class="btn danger" id="btnListAbsent">✗ Danh sách vắng mặt</button>
+        <div class="spacer"></div>
+        <button class="btn secondary" id="btnStats">↻ Thống kê</button>
+      </div>
+      <div class="row mt">
+        <button class="btn secondary" id="btnSupplement">＋ Điểm danh bổ sung</button>
+        <a class="btn secondary" id="btnExport">⬇ Xuất Excel</a>
+      </div>
+    </div>
+    <div class="card hidden" id="detailCard">
+      <div class="row" style="margin-bottom:10px;">
+        <h2 id="detailTitle"></h2>
+        <div class="spacer"></div>
+        <button class="btn secondary small" onclick="document.getElementById('detailCard').classList.add('hidden')">Đóng</button>
+      </div>
+      <input id="detailSearch" placeholder="Tìm theo tên / CCCD / đơn vị…">
+      <div class="table-wrap"><table>
+        <thead><tr><th>STT</th><th>Họ và tên</th><th>Đơn vị</th><th>Thời gian</th><th>Hình thức</th></tr></thead>
+        <tbody id="detailBody"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+const sessionId = new URLSearchParams(location.search).get('id');
+let sess = null;
+let pollTimer = null, countdownTimer = null, qrSecondsLeft = 0;
+
+const TYPE_LABEL = { qr: 'QR', manual: 'BTC xác nhận', supplement: 'Bổ sung' };
+
+async function load() {
+  clearTimers();
+  try { sess = await api(`/api/sessions/${sessionId}`); }
+  catch (e) { showAlert('alert', e.message); return; }
+
+  el('sessionName').textContent = sess.name;
+  const badge = el('sessionBadge');
+  badge.textContent = STATUS_LABEL[sess.status];
+  badge.className = `badge ${sess.status}`;
+  ['draftView', 'openView', 'closedView'].forEach(hide);
+
+  if (sess.status === 'draft') {
+    show('draftView'); show('btnDelete');
+    renderPreview();
+  } else if (sess.status === 'open' || sess.status === 'supplement') {
+    show('openView'); hide('btnDelete');
+    el('supplementNote').classList.toggle('hidden', sess.status !== 'supplement');
+    startQrPolling();
+    renderManualList();
+  } else {
+    show('closedView'); show('btnDelete');
+    renderStats(sess.stats);
+    el('btnExport').href = `/api/sessions/${sessionId}/export`;
+  }
+}
+
+function clearTimers() {
+  if (pollTimer) clearInterval(pollTimer);
+  if (countdownTimer) clearInterval(countdownTimer);
+}
+
+/* ---------- DRAFT ---------- */
+const dz = el('dropzone');
+dz.addEventListener('click', () => el('fileInput').click());
+dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drag'); if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]); });
+el('fileInput').addEventListener('change', () => { if (el('fileInput').files[0]) uploadFile(el('fileInput').files[0]); });
+
+async function uploadFile(file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  el('uploadResult').innerHTML = '<div class="muted">Đang xử lý…</div>';
+  try {
+    const r = await api(`/api/sessions/${sessionId}/upload`, { method: 'POST', body: fd });
+    let html = `<div class="alert success">Đã nhập ${r.imported} người từ file.</div>`;
+    if (r.errors.length) {
+      html += `<div class="alert warn">${r.errors.length} dòng bị bỏ qua:<br>` +
+        r.errors.slice(0, 20).map((e) => `• Dòng ${e.row}: ${esc(e.message)}`).join('<br>') +
+        (r.errors.length > 20 ? `<br>… và ${r.errors.length - 20} lỗi khác` : '') + '</div>';
+    }
+    el('uploadResult').innerHTML = html;
+    renderPreview();
+  } catch (e) {
+    el('uploadResult').innerHTML = `<div class="alert error">${esc(e.message)}</div>`;
+  }
+}
+
+async function renderPreview() {
+  const rows = await api(`/api/sessions/${sessionId}/attendees`);
+  el('previewCount').textContent = rows.length;
+  el('previewTable').querySelector('tbody').innerHTML = rows.slice(0, 300).map((a) =>
+    `<tr><td>${a.stt}</td><td>${esc(a.cccd)}</td><td>${esc(a.full_name)}</td><td>${esc(a.unit || '')}</td><td>${esc(a.phone || '')}</td></tr>`).join('');
+  el('btnOpen').disabled = rows.length === 0;
+}
+
+el('btnOpen').addEventListener('click', async () => {
+  if (!confirm('Bắt đầu điểm danh? Sau khi bắt đầu sẽ không sửa được danh sách.')) return;
+  try { await api(`/api/sessions/${sessionId}/open`, { method: 'POST' }); load(); }
+  catch (e) { showAlert('alert', e.message); }
+});
+
+/* ---------- OPEN / SUPPLEMENT ---------- */
+function startQrPolling() {
+  const tick = async () => {
+    try {
+      const q = await api(`/api/sessions/${sessionId}/qr`);
+      el('qrImg').src = q.dataUrl;
+      qrSecondsLeft = q.secondsLeft;
+      el('liveCounter').textContent = q.stats.present;
+      el('liveTotal').textContent = q.stats.total;
+      renderFlagged();
+    } catch (e) { /* phiên có thể vừa bị đóng ở tab khác */ }
+  };
+  tick();
+  pollTimer = setInterval(tick, 4000);
+  countdownTimer = setInterval(() => {
+    qrSecondsLeft = Math.max(0, qrSecondsLeft - 1);
+    el('countdown').textContent = qrSecondsLeft;
+  }, 1000);
+}
+
+async function renderFlagged() {
+  const rows = await api(`/api/sessions/${sessionId}/attendees?flag=review`);
+  el('flaggedCard').classList.toggle('hidden', rows.length === 0);
+  el('flaggedCount').textContent = rows.length;
+  el('flaggedTable').querySelector('tbody').innerHTML = rows.map((a) => `
+    <tr>
+      <td><b>${esc(a.full_name)}</b><br><span class="muted">${esc(a.unit || '')} · ${esc(a.checked_in_at || '')}</span></td>
+      <td style="text-align:right;white-space:nowrap;">
+        <button class="btn green small" onclick="resolveFlag(${a.id},'approve')">Duyệt</button>
+        <button class="btn danger small" onclick="resolveFlag(${a.id},'reject')">Từ chối</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function resolveFlag(aid, action) {
+  try { await api(`/api/sessions/${sessionId}/attendees/${aid}/resolve`, { method: 'POST', body: { action } }); renderFlagged(); }
+  catch (e) { showAlert('alert', e.message); }
+}
+
+let manualTimer = null;
+el('manualSearch').addEventListener('input', () => {
+  clearTimeout(manualTimer);
+  manualTimer = setTimeout(renderManualList, 300);
+});
+
+async function renderManualList() {
+  const q = encodeURIComponent(el('manualSearch').value.trim());
+  const rows = await api(`/api/sessions/${sessionId}/attendees?q=${q}`);
+  el('manualTable').querySelector('tbody').innerHTML = rows.slice(0, 100).map((a) => `
+    <tr>
+      <td><b>${esc(a.full_name)}</b><br><span class="muted">${esc(a.unit || '')}</span></td>
+      <td>${a.status === 'present' ? '<span class="badge open">Có mặt</span>' : '<span class="badge draft">Vắng</span>'}</td>
+      <td style="text-align:right;">
+        ${a.status === 'present'
+          ? `<button class="btn secondary small" onclick="markAttendee(${a.id},'absent')">Bỏ tích</button>`
+          : `<button class="btn green small" onclick="markAttendee(${a.id},'present')">✓ Có mặt</button>`}
+      </td>
+    </tr>`).join('');
+}
+
+async function markAttendee(aid, status) {
+  try { await api(`/api/sessions/${sessionId}/attendees/${aid}/mark`, { method: 'POST', body: { status } }); renderManualList(); }
+  catch (e) { showAlert('alert', e.message); }
+}
+
+el('btnClose').addEventListener('click', async () => {
+  if (!confirm('Kết thúc điểm danh?')) return;
+  try { await api(`/api/sessions/${sessionId}/close`, { method: 'POST' }); load(); }
+  catch (e) { showAlert('alert', e.message); }
+});
+
+/* ---------- CLOSED ---------- */
+function renderStats(st) {
+  el('stPresent').textContent = st.present;
+  el('stAbsent').textContent = st.absent;
+  el('stTotal').textContent = st.total;
+  el('donutPct').textContent = `${st.rate}%`;
+  const circumference = 2 * Math.PI * 50;
+  el('donutArc').setAttribute('stroke-dasharray', `${(st.rate / 100) * circumference} ${circumference}`);
+}
+
+el('btnStats').addEventListener('click', async () => {
+  const st = await api(`/api/sessions/${sessionId}/stats`);
+  renderStats(st);
+});
+
+let detailStatus = 'present';
+el('btnListPresent').addEventListener('click', () => openDetail('present'));
+el('btnListAbsent').addEventListener('click', () => openDetail('absent'));
+el('detailSearch').addEventListener('input', () => { clearTimeout(manualTimer); manualTimer = setTimeout(() => openDetail(detailStatus), 300); });
+
+async function openDetail(status) {
+  detailStatus = status;
+  const q = encodeURIComponent(el('detailSearch').value.trim());
+  const rows = await api(`/api/sessions/${sessionId}/attendees?status=${status}&q=${q}`);
+  el('detailTitle').textContent = status === 'present' ? `Danh sách có mặt (${rows.length})` : `Danh sách vắng mặt (${rows.length})`;
+  el('detailBody').innerHTML = rows.map((a) => `
+    <tr><td>${a.stt}</td><td><b>${esc(a.full_name)}</b></td><td>${esc(a.unit || '')}</td>
+    <td>${esc(a.checked_in_at || '—')}</td><td>${TYPE_LABEL[a.checkin_type] || '—'}</td></tr>`).join('');
+  show('detailCard');
+  el('detailCard').scrollIntoView({ behavior: 'smooth' });
+}
+
+el('btnSupplement').addEventListener('click', async () => {
+  try { await api(`/api/sessions/${sessionId}/supplement`, { method: 'POST' }); load(); }
+  catch (e) { showAlert('alert', e.message); }
+});
+
+el('btnDelete').addEventListener('click', async () => {
+  if (!confirm(`Xoá phiên "${sess.name}" và toàn bộ dữ liệu điểm danh?`)) return;
+  try { await api(`/api/sessions/${sessionId}`, { method: 'DELETE' }); location.href = '/'; }
+  catch (e) { showAlert('alert', e.message); }
+});
+
+load();
+</script>
+</body>
+</html>

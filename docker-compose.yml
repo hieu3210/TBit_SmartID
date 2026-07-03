@@ -1,0 +1,35 @@
+services:
+  app:
+    build: .
+    container_name: tbit-smartid
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgres://tbit:tbit@postgres:5432/tbit_smartid"
+      SESSION_SECRET: "doi-chuoi-nay-khi-trien-khai-that"
+      # Đặt khi cần QR trỏ về địa chỉ khác localhost (VD chạy trong LAN):
+      # BASE_URL: "http://192.168.1.10:3000"
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: tbit-smartid-db
+    environment:
+      POSTGRES_USER: tbit
+      POSTGRES_PASSWORD: tbit
+      POSTGRES_DB: tbit_smartid
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tbit -d tbit_smartid"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:

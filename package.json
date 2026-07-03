@@ -1,0 +1,21 @@
+{
+  "name": "tbit-smartid",
+  "version": "2.0.0",
+  "description": "TBit SmartID — Ứng dụng điểm danh sự kiện bằng QR Code",
+  "main": "server/app.js",
+  "scripts": {
+    "start": "node server/app.js",
+    "reset-admin": "node server/reset-admin.js"
+  },
+  "license": "GPL-3.0",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cookie-session": "^2.1.0",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.2",
+    "pg": "^8.13.1",
+    "qrcode": "^1.5.4",
+    "xlsx": "^0.18.5"
+  }
+}
