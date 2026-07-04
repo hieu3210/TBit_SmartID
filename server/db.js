@@ -1,7 +1,10 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
-const connectionString = process.env.DATABASE_URL || 'postgres://tbit:tbit@localhost:5432/tbit_smartid';
+// Ưu tiên DATABASE_URL; POSTGRES_URL là biến do tích hợp Vercel ↔ Supabase tự tạo
+const connectionString = process.env.DATABASE_URL
+  || process.env.POSTGRES_URL
+  || 'postgres://tbit:tbit@localhost:5432/tbit_smartid';
 
 // Supabase/cloud cần SSL; Postgres local (localhost hoặc service "postgres" trong Docker) thì không
 const isLocal = /@(localhost|127\.0\.0\.1|postgres)[:/]/.test(connectionString);

@@ -73,7 +73,7 @@ DATABASE_URL="postgres://tbit:tbit@localhost:5432/tbit_smartid" npm start
 
 | Biến | Mặc định | Ý nghĩa |
 |---|---|---|
-| `DATABASE_URL` | Postgres local trong compose | Chuỗi kết nối PostgreSQL (Supabase dùng **Transaction pooler**, cổng 6543) |
+| `DATABASE_URL` | Postgres local trong compose | Chuỗi kết nối PostgreSQL (Supabase dùng **Transaction pooler**, cổng 6543). Nếu dùng tích hợp Vercel ↔ Supabase, app tự nhận biến `POSTGRES_URL` do tích hợp tạo — không cần đặt tay |
 | `SESSION_SECRET` | tự sinh mỗi lần chạy | **Bắt buộc đặt khi lên production** — ký cookie đăng nhập + mã QR động |
 | `BASE_URL` | tự lấy theo request | Chỉ cần đặt khi URL trong QR khác địa chỉ server nhìn thấy (chạy LAN, sau proxy đặc biệt) |
 | `QR_ROTATE_SECONDS` | `10` | Chu kỳ đổi mã QR động |
