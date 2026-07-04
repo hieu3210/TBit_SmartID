@@ -2,9 +2,21 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
 // Ưu tiên DATABASE_URL; POSTGRES_URL là biến do tích hợp Vercel ↔ Supabase tự tạo
-const connectionString = process.env.DATABASE_URL
+const rawConnectionString = process.env.DATABASE_URL
   || process.env.POSTGRES_URL
   || 'postgres://tbit:tbit@localhost:5432/tbit_smartid';
+
+// Bỏ tham số sslmode trong URL (tích hợp Vercel thêm sẵn "?sslmode=require"):
+// nó đè cấu hình ssl bên dưới và bắt xác thực chứng chỉ đầy đủ, trong khi pooler
+// của Supabase dùng chứng chỉ self-signed → lỗi "self-signed certificate in certificate chain".
+function stripSslMode(cs) {
+  try {
+    const u = new URL(cs);
+    u.searchParams.delete('sslmode');
+    return u.toString();
+  } catch (e) { return cs; }
+}
+const connectionString = stripSslMode(rawConnectionString);
 
 // Supabase/cloud cần SSL; Postgres local (localhost hoặc service "postgres" trong Docker) thì không
 const isLocal = /@(localhost|127\.0\.0\.1|postgres)[:/]/.test(connectionString);
