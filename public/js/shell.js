@@ -19,10 +19,28 @@
     const nav = document.createElement('nav');
     nav.className = 'topbar-menu';
     nav.innerHTML = `
+      <button class="link theme-toggle" type="button" id="btnTheme" title="Chế độ sáng/tối" aria-label="Chuyển chế độ sáng/tối"></button>
       <button class="link" type="button" data-modal="aboutModal">Giới thiệu</button>
       <button class="link" type="button" data-modal="guideModal">Hướng dẫn</button>`;
     const actions = topbar.querySelector('.actions');
     topbar.insertBefore(nav, actions);
+  }
+
+  /* ---------- Chế độ sáng / tối ---------- */
+  function currentTheme() {
+    return document.documentElement.getAttribute('data-theme')
+      || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  }
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem('tbit-theme', t); } catch (e) { /* bỏ qua */ }
+    const b = document.getElementById('btnTheme');
+    if (b) b.textContent = t === 'dark' ? '☀️' : '🌙';
+  }
+  const themeBtn = document.getElementById('btnTheme');
+  if (themeBtn) {
+    themeBtn.textContent = currentTheme() === 'dark' ? '☀️' : '🌙';
+    themeBtn.addEventListener('click', () => applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'));
   }
 
   /* ---------- Footer ---------- */
@@ -60,7 +78,8 @@
         <h3>Tác giả &amp; liên hệ</h3>
         <div class="contact-box">
           <div class="contact-name">Nguyễn Duy Hiếu</div>
-          <div>Liên hệ tạo tài khoản người dùng:</div>
+          <div>Liên hệ để được cấp tài khoản sử dụng giải pháp:</div>
+          <div>📞 Điện thoại / Zalo: <a href="tel:0972782203">0972782203</a></div>
           <div>✉️ <a href="mailto:hieund@utb.edu.vn">hieund@utb.edu.vn</a> · <a href="mailto:hieu3210@gmail.com">hieu3210@gmail.com</a></div>
         </div>
       </div>
@@ -81,7 +100,7 @@
         <h3><span class="step-n">1</span>Tạo phiên — chọn 1 trong 2 loại</h3>
         <ul>
           <li>Bấm <b>＋ Tạo phiên mới</b>, đặt tên sự kiện, chọn loại phiên; có thể đặt <b>thời gian tự kết thúc</b> và <b>chu kỳ đổi mã QR</b> riêng (hoặc mã cố định).</li>
-          <li><b>Theo danh sách đã có</b>: tải <b>template Excel</b>, điền danh sách (cột CCCD và SĐT để dạng <b>Text</b> để không mất số 0 đầu), kéo-thả file vào ô tải lên — hoặc <b>chọn danh sách đã lưu</b> từ lần trước. Có thể <b>thêm / sửa / xoá</b> từng người và <b>lưu danh sách</b> để dùng lại.</li>
+          <li><b>Theo danh sách đã có</b>: tải <b>template Excel</b>, điền danh sách (cột CCCD và SĐT để dạng <b>Text</b> để không mất số 0 đầu), kéo-thả file vào ô tải lên — hoặc <b>chọn danh sách đã lưu</b> từ lần trước. Có thể <b>thêm / sửa / xoá</b> từng người và <b>lưu danh sách</b> để dùng lại. Khi tạo, chọn <b>trường bắt buộc để điểm danh</b> (VD chỉ cần SĐT) và có thể bật <b>ghi danh tự do</b> cho người ngoài danh sách.</li>
           <li><b>Không theo danh sách (ghi danh tự do)</b>: chọn các trường người tham dự cần điền, đánh dấu trường <b>bắt buộc</b>; người tham dự quét QR và tự ghi danh.</li>
         </ul>
         <h3><span class="step-n">2</span>Điểm danh bằng QR</h3>
@@ -98,11 +117,11 @@
         <h3><span class="step-n">4</span>Kết thúc &amp; thống kê</h3>
         <ul>
           <li>Bấm <b>⏹ Kết thúc</b> (hoặc để hệ thống tự kết thúc đúng giờ) → xem tỉ lệ tham gia, danh sách có mặt / vắng mặt.</li>
-          <li><b>＋ Điểm danh bổ sung</b> cho người đến muộn; <b>⬇ Xuất Excel</b> tải kết quả đầy đủ.</li>
+          <li><b>▶ Mở lại phiên</b> để tiếp tục điểm danh cho người đến muộn, có thể đặt lại giờ kết thúc; <b>⬇ Xuất Excel</b> tải kết quả đầy đủ.</li>
         </ul>
         <h3><span class="step-n">5</span>Quản trị hệ thống (quản trị viên)</h3>
         <ul>
-          <li>Menu <b>Quản trị</b>: quản lý người dùng (họ tên, email, vai trò), cấu hình <b>trường Excel</b>, <b>chu kỳ QR mặc định</b> và <b>máy chủ email (SMTP)</b>.</li>
+          <li>Menu <b>Quản trị</b>: quản lý người dùng (họ tên, email, vai trò), cấu hình <b>trường danh sách</b> (trường nào có trong mẫu / bắt buộc nhập), <b>chu kỳ QR mặc định</b> và <b>máy chủ email (SMTP)</b>.</li>
           <li>Quên mật khẩu? Bấm <b>Quên mật khẩu</b> ở màn đăng nhập — hệ thống gửi link đặt lại qua email.</li>
         </ul>
       </div>

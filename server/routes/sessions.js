@@ -5,16 +5,22 @@ const QRCode = require('qrcode');
 const { query, pool, nowVN } = require('../db');
 const { requireAuth, loadOwnedSession } = require('../middleware');
 const { buildTemplate, parseAttendees, buildExport } = require('../lib/excel');
-const { getExtraFields, DEFAULT_OPEN_FIELDS, validateOpenFields } = require('../lib/fields');
-
-// Nhãn các trường tự đặt của phiên ghi danh (nằm trong JSONB extra)
-function customLabelsOf(session) {
-  const coreKeys = ['full_name', 'phone', 'cccd', 'unit', 'email'];
-  return (session.fields || []).filter((f) => !coreKeys.includes(f.key)).map((f) => f.label);
-}
+const {
+  getListFields, enabledColumns, columnsForSession,
+  validateCheckinFields, DEFAULT_OPEN_FIELDS, validateOpenFields,
+} = require('../lib/fields');
 const { currentCode, secondsLeft } = require('../lib/qrtoken');
 const { qrSecondsFor } = require('../lib/sysconfig');
 const { normalizeCccd, normalizePhone, isValidCccd, isValidPhone } = require('../lib/normalize');
+
+// 'YYYY-MM-DDTHH:mm' (input datetime-local, giờ VN) -> 'YYYY-MM-DD HH:mm:00' hoặc null
+function parseEndsAt(value, { allowPast = false } = {}) {
+  if (!value) return { endsAt: null };
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return { error: 'Thời gian kết thúc không hợp lệ' };
+  const endsAt = value.replace('T', ' ') + ':00';
+  if (!allowPast && endsAt <= nowVN()) return { error: 'Thời gian kết thúc phải ở tương lai' };
+  return { endsAt };
+}
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -37,12 +43,12 @@ function baseUrl(req) {
   return process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
 }
 
-// Tải template Excel (kèm các trường bổ sung do admin cấu hình)
+// Tải template Excel theo các trường admin đã bật
 router.get('/template', async (req, res, next) => {
   try {
     res.setHeader('Content-Disposition', 'attachment; filename="template_diem_danh.xlsx"');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buildTemplate(await getExtraFields()));
+    res.send(buildTemplate(enabledColumns(await getListFields())));
   } catch (e) { next(e); }
 });
 
@@ -78,13 +84,9 @@ router.post('/', async (req, res, next) => {
     if (!name) return res.status(400).json({ error: 'Vui lòng nhập tên sự kiện' });
     const type = b.type === 'open' ? 'open' : 'list';
 
-    // Thời gian tự kết thúc (tuỳ chọn): 'YYYY-MM-DDTHH:mm' từ input datetime-local, giờ VN
-    let endsAt = null;
-    if (b.ends_at) {
-      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(b.ends_at)) return res.status(400).json({ error: 'Thời gian kết thúc không hợp lệ' });
-      endsAt = b.ends_at.replace('T', ' ') + ':00';
-      if (endsAt <= nowVN()) return res.status(400).json({ error: 'Thời gian kết thúc phải ở tương lai' });
-    }
+    // Thời gian tự kết thúc (tuỳ chọn)
+    const { endsAt, error: endErr } = parseEndsAt(b.ends_at);
+    if (endErr) return res.status(400).json({ error: endErr });
 
     // Chu kỳ QR riêng (tuỳ chọn): null = mặc định hệ thống, 0 = mã cố định, 5–300 giây
     let qrSeconds = null;
@@ -95,14 +97,54 @@ router.post('/', async (req, res, next) => {
       }
     }
 
+    // Phiên theo danh sách: trường bắt buộc để điểm danh + cho phép ghi danh tự do (walk-in)
+    let checkinFields = null;
+    let allowOpen = false;
+    let fields = type === 'open' ? DEFAULT_OPEN_FIELDS : null;
+    if (type === 'list') {
+      allowOpen = !!b.allow_open;
+      if (b.checkin_fields) {
+        const r = validateCheckinFields(b.checkin_fields, await getListFields());
+        if (r.error) return res.status(400).json({ error: r.error });
+        checkinFields = r.fields;
+      }
+      if (allowOpen) fields = DEFAULT_OPEN_FIELDS; // form cho người không có trong danh sách
+    }
+
     const token = crypto.randomBytes(16).toString('hex');
     const { rows } = await query(
-      `INSERT INTO sessions (name, token, owner_id, created_at, type, fields, ends_at, qr_seconds)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      `INSERT INTO sessions (name, token, owner_id, created_at, type, fields, ends_at, qr_seconds, checkin_fields, allow_open)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
       [name, token, req.session.user.id, nowVN(), type,
-        type === 'open' ? JSON.stringify(DEFAULT_OPEN_FIELDS) : null, endsAt, qrSeconds]
+        fields ? JSON.stringify(fields) : null, endsAt, qrSeconds,
+        checkinFields ? JSON.stringify(checkinFields) : null, allowOpen]
     );
     res.json({ id: rows[0].id, name, token, status: 'draft', type });
+  } catch (e) { next(e); }
+});
+
+// Bật/tắt ghi danh tự do cho phiên theo danh sách (lúc tạo hoặc đang điểm danh)
+router.put('/:id/allow-open', loadOwnedSession, async (req, res, next) => {
+  try {
+    const s = req.attSession;
+    if (s.type !== 'list') return res.status(400).json({ error: 'Chỉ áp dụng cho phiên theo danh sách' });
+    const allow = !!(req.body || {}).allow_open;
+    // Bật lần đầu mà chưa có form walk-in thì đặt form mặc định
+    const setFields = allow && !s.fields ? JSON.stringify(DEFAULT_OPEN_FIELDS) : (s.fields ? JSON.stringify(s.fields) : null);
+    await query('UPDATE sessions SET allow_open = $1, fields = $2 WHERE id = $3', [allow, setFields, s.id]);
+    res.json({ ok: true, allow_open: allow });
+  } catch (e) { next(e); }
+});
+
+// Đặt / đổi / xoá thời gian tự kết thúc (khi đang điểm danh)
+router.put('/:id/ends-at', loadOwnedSession, async (req, res, next) => {
+  try {
+    const s = req.attSession;
+    if (s.status !== 'open' && s.status !== 'supplement') return res.status(400).json({ error: 'Chỉ đặt được khi đang điểm danh' });
+    const { endsAt, error } = parseEndsAt((req.body || {}).ends_at);
+    if (error) return res.status(400).json({ error });
+    await query('UPDATE sessions SET ends_at = $1 WHERE id = $2', [endsAt, s.id]);
+    res.json({ ok: true, ends_at: endsAt });
   } catch (e) { next(e); }
 });
 
@@ -140,7 +182,7 @@ router.post('/:id/upload', loadOwnedSession, upload.single('file'), async (req, 
 
   let parsed;
   try {
-    parsed = parseAttendees(req.file.buffer, await getExtraFields());
+    parsed = parseAttendees(req.file.buffer, enabledColumns(await getListFields()));
   } catch (e) {
     return res.status(400).json({ error: 'Không đọc được file — hãy dùng file .xlsx theo template' });
   }
@@ -181,7 +223,10 @@ router.post('/:id/open', loadOwnedSession, async (req, res, next) => {
   try {
     const s = req.attSession;
     if (s.status !== 'draft') return res.status(400).json({ error: 'Phiên đã bắt đầu trước đó' });
-    if (s.type !== 'open' && !(await statsFor(s.id)).total) return res.status(400).json({ error: 'Chưa có danh sách — hãy upload file Excel trước' });
+    // Phiên danh sách phải có danh sách, trừ khi cho phép ghi danh tự do
+    if (s.type !== 'open' && !s.allow_open && !(await statsFor(s.id)).total) {
+      return res.status(400).json({ error: 'Chưa có danh sách — hãy upload file Excel hoặc bật ghi danh tự do' });
+    }
     await query("UPDATE sessions SET status = 'open', opened_at = $1 WHERE id = $2", [nowVN(), s.id]);
     res.json({ ok: true });
   } catch (e) { next(e); }
@@ -196,11 +241,23 @@ router.post('/:id/close', loadOwnedSession, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Mở lại phiên đã kết thúc để tiếp tục điểm danh (bổ sung), có thể đặt lại giờ tự kết thúc
+router.post('/:id/reopen', loadOwnedSession, async (req, res, next) => {
+  try {
+    const s = req.attSession;
+    if (s.status !== 'closed') return res.status(400).json({ error: 'Chỉ mở lại phiên đã kết thúc' });
+    const { endsAt, error } = parseEndsAt((req.body || {}).ends_at);
+    if (error) return res.status(400).json({ error });
+    await query("UPDATE sessions SET status = 'supplement', closed_at = NULL, ends_at = $1 WHERE id = $2", [endsAt, s.id]);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+// Giữ đường dẫn cũ để tương thích
 router.post('/:id/supplement', loadOwnedSession, async (req, res, next) => {
   try {
     const s = req.attSession;
     if (s.status !== 'closed') return res.status(400).json({ error: 'Chỉ mở điểm danh bổ sung sau khi đã kết thúc' });
-    await query("UPDATE sessions SET status = 'supplement' WHERE id = $1", [s.id]);
+    await query("UPDATE sessions SET status = 'supplement', closed_at = NULL, ends_at = NULL WHERE id = $1", [s.id]);
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
@@ -233,7 +290,7 @@ router.get('/:id/attendees', loadOwnedSession, async (req, res, next) => {
     if (flag === 'review') sql += " AND flag = 'review'";
     if (q) {
       params.push(`%${q}%`);
-      sql += ` AND (full_name ILIKE $${params.length} OR cccd LIKE $${params.length} OR unit ILIKE $${params.length})`;
+      sql += ` AND (full_name ILIKE $${params.length} OR cccd LIKE $${params.length} OR unit ILIKE $${params.length} OR phone LIKE $${params.length})`;
     }
     sql += ' ORDER BY stt';
     const { rows } = await query(sql, params);
@@ -246,11 +303,20 @@ router.post('/:id/attendees/:aid/mark', loadOwnedSession, async (req, res, next)
   try {
     const { status } = req.body || {};
     if (status !== 'present' && status !== 'absent') return res.status(400).json({ error: 'Trạng thái không hợp lệ' });
-    const r = status === 'present'
-      ? await query(`UPDATE attendees SET status = 'present', checked_in_at = $1, checkin_type = 'manual', flag = 'ok' WHERE id = $2 AND session_id = $3`,
-          [nowVN(), req.params.aid, req.attSession.id])
-      : await query(`UPDATE attendees SET status = 'absent', checked_in_at = NULL, checkin_type = NULL, flag = 'ok' WHERE id = $1 AND session_id = $2`,
+    let r;
+    if (status === 'present') {
+      r = await query(`UPDATE attendees SET status = 'present', checked_in_at = $1, checkin_type = 'manual', flag = 'ok' WHERE id = $2 AND session_id = $3`,
+        [nowVN(), req.params.aid, req.attSession.id]);
+    } else {
+      // Bỏ tích người ghi danh tự do (không có trong danh sách gốc) = xoá hẳn bản ghi
+      const { rows } = await query('SELECT self_registered FROM attendees WHERE id = $1 AND session_id = $2', [req.params.aid, req.attSession.id]);
+      if (rows.length && rows[0].self_registered) {
+        r = await query('DELETE FROM attendees WHERE id = $1 AND session_id = $2', [req.params.aid, req.attSession.id]);
+      } else {
+        r = await query(`UPDATE attendees SET status = 'absent', checked_in_at = NULL, checkin_type = NULL, flag = 'ok' WHERE id = $1 AND session_id = $2`,
           [req.params.aid, req.attSession.id]);
+      }
+    }
     if (!r.rowCount) return res.status(404).json({ error: 'Không tìm thấy người trong danh sách' });
     res.json({ ok: true, stats: await statsFor(req.attSession.id) });
   } catch (e) { next(e); }
@@ -265,13 +331,18 @@ router.post('/:id/attendees/:aid/resolve', loadOwnedSession, async (req, res, ne
     if (action === 'approve') {
       r = await query(`UPDATE attendees SET flag = 'ok' WHERE id = $1 AND session_id = $2 AND flag = 'review'`,
         [req.params.aid, req.attSession.id]);
-    } else if (req.attSession.type === 'open') {
-      // Phiên ghi danh: từ chối là xoá hẳn bản ghi (không có khái niệm "vắng")
-      r = await query(`DELETE FROM attendees WHERE id = $1 AND session_id = $2 AND flag = 'review'`,
-        [req.params.aid, req.attSession.id]);
     } else {
-      r = await query(`UPDATE attendees SET flag = 'ok', status = 'absent', checked_in_at = NULL, checkin_type = NULL WHERE id = $1 AND session_id = $2 AND flag = 'review'`,
-        [req.params.aid, req.attSession.id]);
+      // Từ chối: người ghi danh tự do (không có trong danh sách gốc) bị xoá hẳn; người trong
+      // danh sách trở về "vắng".
+      const { rows } = await query('SELECT self_registered FROM attendees WHERE id = $1 AND session_id = $2 AND flag = $3',
+        [req.params.aid, req.attSession.id, 'review']);
+      if (rows.length && (req.attSession.type === 'open' || rows[0].self_registered)) {
+        r = await query(`DELETE FROM attendees WHERE id = $1 AND session_id = $2 AND flag = 'review'`,
+          [req.params.aid, req.attSession.id]);
+      } else {
+        r = await query(`UPDATE attendees SET flag = 'ok', status = 'absent', checked_in_at = NULL, checkin_type = NULL WHERE id = $1 AND session_id = $2 AND flag = 'review'`,
+          [req.params.aid, req.attSession.id]);
+      }
     }
     if (!r.rowCount) return res.status(404).json({ error: 'Không tìm thấy lượt cần xác nhận' });
     res.json({ ok: true, stats: await statsFor(req.attSession.id) });
@@ -285,16 +356,17 @@ function parseMember(b) {
   const cccd = normalizeCccd((b || {}).cccd);
   const fullName = String((b || {}).full_name || '').trim();
   const phone = normalizePhone((b || {}).phone);
-  if (!fullName) return { error: 'Vui lòng nhập họ và tên' };
-  if (!isValidCccd(cccd)) return { error: 'CCCD phải đủ 12 chữ số' };
-  if (!isValidPhone(phone)) return { error: 'Số điện thoại không hợp lệ' };
+  // Họ và tên không bắt buộc, nhưng cần ít nhất một thông tin để nhận diện
+  if (!fullName && !cccd && !phone) return { error: 'Nhập ít nhất Họ và tên, Số CCCD hoặc Số điện thoại' };
+  if (cccd && !isValidCccd(cccd)) return { error: 'CCCD phải đủ 12 chữ số' };
+  if (phone && !isValidPhone(phone)) return { error: 'Số điện thoại không hợp lệ' };
   const extra = {};
   Object.entries((b || {}).extra || {}).forEach(([k, v]) => {
     const val = String(v == null ? '' : v).trim();
     if (val) extra[String(k).slice(0, 40)] = val.slice(0, 200);
   });
   return { member: {
-    cccd, full_name: fullName, phone,
+    cccd: cccd || null, full_name: fullName || null, phone: phone || null,
     unit: String((b || {}).unit || '').trim() || null,
     email: String((b || {}).email || '').trim() || null,
     extra: Object.keys(extra).length ? extra : null,
@@ -424,8 +496,7 @@ router.get('/:id/export', loadOwnedSession, async (req, res, next) => {
   try {
     const s = req.attSession;
     const { rows: attendees } = await query('SELECT * FROM attendees WHERE session_id = $1 ORDER BY stt', [s.id]);
-    const buffer = buildExport(s, attendees, await statsFor(s.id),
-      s.type === 'open' ? customLabelsOf(s) : await getExtraFields());
+    const buffer = buildExport(s, attendees, await statsFor(s.id), columnsForSession(s, await getListFields()));
     const safeName = s.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
     res.setHeader('Content-Disposition', `attachment; filename="ket_qua_${safeName || 'diem_danh'}.xlsx"`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

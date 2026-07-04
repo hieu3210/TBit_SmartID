@@ -1,123 +1,160 @@
 const XLSX = require('xlsx');
 const { normalizeCccd, normalizePhone, isValidCccd, isValidPhone } = require('./normalize');
 
-const HEADERS = ['STT', 'CCCD', 'Họ và tên', 'Đơn vị', 'Số điện thoại', 'Email'];
+const CORE_KEYS = ['cccd', 'full_name', 'unit', 'phone', 'email'];
 
-// Sinh file template mẫu (kèm các trường bổ sung do admin cấu hình)
-function buildTemplate(extraFields = []) {
-  const pad = extraFields.map(() => '');
-  const rows = [
-    [...HEADERS, ...extraFields],
-    [1, '001099012345', 'Nguyễn Văn A', 'Phòng Kế hoạch', '0912345678', 'vana@example.com', ...pad],
-    [2, '001088054321', 'Trần Thị B', 'Phòng Tài chính', '0987654321', 'thib@example.com', ...pad],
-  ];
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  // Ép CCCD và SĐT của dòng mẫu về kiểu text để Excel không cắt số 0 đầu
-  ['B2', 'E2', 'B3', 'E3'].forEach((addr) => { ws[addr].t = 's'; ws[addr].z = '@'; });
-  ws['!cols'] = [{ wch: 5 }, { wch: 16 }, { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 25 },
-    ...extraFields.map(() => ({ wch: 18 }))];
+// Header nhận diện cột lõi khi đọc file (không phân biệt hoa thường)
+const HEADER_MATCH = {
+  cccd: (h) => h.includes('cccd') || h.includes('căn cước') || h.includes('cmnd') || h.includes('cmt'),
+  full_name: (h) => h.startsWith('họ') || h.includes('họ tên') || h === 'tên',
+  unit: (h) => h.includes('đơn vị') || h.includes('cơ quan'),
+  phone: (h) => h.includes('điện thoại') || h === 'sđt' || h.includes('phone'),
+  email: (h) => h.includes('email') || h.includes('thư điện tử'),
+};
+
+const SAMPLE = {
+  cccd: ['001099012345', '001088054321'],
+  full_name: ['Nguyễn Văn A', 'Trần Thị B'],
+  unit: ['Phòng Kế hoạch', 'Phòng Tài chính'],
+  phone: ['0912345678', '0987654321'],
+  email: ['vana@example.com', 'thib@example.com'],
+};
+
+function cellValue(a, key) {
+  if (key === 'stt') return a.stt;
+  if (CORE_KEYS.includes(key)) return a[key] || '';
+  return (a.extra && a.extra[key]) || '';
+}
+
+function widthOf(key) {
+  if (key === 'stt') return 5;
+  if (key === 'cccd') return 16;
+  if (key === 'phone') return 15;
+  if (key === 'full_name' || key === 'unit' || key === 'email') return 25;
+  return 18;
+}
+
+// Ép các cột CCCD/SĐT về kiểu text để Excel không cắt số 0 đầu
+function markTextColumns(ws, cols, dataRowCount) {
+  cols.forEach((c, i) => {
+    if (c.key !== 'cccd' && c.key !== 'phone') return;
+    const letter = XLSX.utils.encode_col(i);
+    for (let r = 2; r <= dataRowCount + 1; r++) {
+      const addr = `${letter}${r}`;
+      if (ws[addr]) { ws[addr].t = 's'; ws[addr].z = '@'; }
+    }
+  });
+}
+
+// Sinh template theo các cột đang bật (columns = [{key,label}], không gồm STT)
+function buildTemplate(columns = []) {
+  const cols = [{ key: 'stt', label: 'STT' }, ...columns];
+  const header = cols.map((c) => c.label);
+  const sample = (n) => cols.map((c) => (c.key === 'stt' ? n + 1 : (SAMPLE[c.key] ? SAMPLE[c.key][n] : '')));
+  const ws = XLSX.utils.aoa_to_sheet([header, sample(0), sample(1)]);
+  markTextColumns(ws, cols, 2);
+  ws['!cols'] = cols.map((c) => ({ wch: widthOf(c.key) }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'DanhSach');
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 }
 
-// Đọc file upload -> { rows: [...], errors: [{row, message}] }
-function parseAttendees(buffer, extraFields = []) {
+// Đọc file upload -> { rows, errors }. columns = [{key,label,required,kind}] các cột đang bật.
+function parseAttendees(buffer, columns = []) {
   const wb = XLSX.read(buffer, { type: 'buffer' });
   const ws = wb.Sheets[wb.SheetNames[0]];
   if (!ws) return { rows: [], errors: [{ row: 0, message: 'File không có sheet dữ liệu' }] };
 
   const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-  // Tìm dòng tiêu đề (dòng chứa "CCCD")
-  const headerIdx = raw.findIndex((r) => r.some((c) => String(c).trim().toUpperCase() === 'CCCD'));
+  const cellsLower = (r) => r.map((c) => String(c).trim().toLowerCase());
+  // Dòng tiêu đề = dòng đầu tiên có ô khớp cột "Họ và tên" (luôn bật)
+  const headerIdx = raw.findIndex((r) => cellsLower(r).some((h) => HEADER_MATCH.full_name(h)));
   if (headerIdx === -1) {
-    return { rows: [], errors: [{ row: 0, message: 'Không tìm thấy dòng tiêu đề chứa cột CCCD — hãy dùng file template' }] };
+    return { rows: [], errors: [{ row: 0, message: 'Không tìm thấy dòng tiêu đề (cột "Họ và tên") — hãy dùng file template' }] };
   }
-  const header = raw[headerIdx].map((c) => String(c).trim().toLowerCase());
-  const col = (name) => header.findIndex((h) => h === name.toLowerCase());
-  const idx = {
-    stt: col('STT'),
-    cccd: col('CCCD'),
-    name: header.findIndex((h) => h.startsWith('họ')),
-    unit: header.findIndex((h) => h.startsWith('đơn vị')),
-    phone: header.findIndex((h) => h.startsWith('số điện thoại') || h === 'sđt'),
-    email: col('Email'),
-  };
-  if (idx.name === -1) return { rows: [], errors: [{ row: headerIdx + 1, message: 'Thiếu cột "Họ và tên"' }] };
-  // Vị trí cột của các trường bổ sung (khớp theo tên cột, không phân biệt hoa thường)
-  const extraIdx = extraFields.map((f) => ({ label: f, col: col(f) }));
+  const header = cellsLower(raw[headerIdx]);
+  const sttIdx = header.findIndex((h) => h === 'stt');
+  // Vị trí cột cho từng trường đang bật
+  const colIdx = columns.map((c) => {
+    let idx = -1;
+    if (c.kind === 'core' && HEADER_MATCH[c.key]) idx = header.findIndex((h) => HEADER_MATCH[c.key](h));
+    else idx = header.findIndex((h) => h === c.label.toLowerCase());
+    return { ...c, idx };
+  });
 
   const rows = [];
   const errors = [];
-  const seen = new Map(); // cccd -> dòng đầu tiên
+  const seenCccd = new Map();
   for (let i = headerIdx + 1; i < raw.length; i++) {
     const r = raw[i];
-    const line = i + 1; // số dòng Excel (1-based)
-    const isEmpty = r.every((c) => String(c).trim() === '');
-    if (isEmpty) continue;
+    const line = i + 1;
+    if (r.every((c) => String(c).trim() === '')) continue;
 
-    const cccd = normalizeCccd(idx.cccd >= 0 ? r[idx.cccd] : '');
-    const fullName = String(idx.name >= 0 ? r[idx.name] : '').trim();
-    const phone = normalizePhone(idx.phone >= 0 ? r[idx.phone] : '');
-
-    if (!fullName) { errors.push({ row: line, message: 'Thiếu Họ và tên' }); continue; }
-    if (!isValidCccd(cccd)) { errors.push({ row: line, message: `CCCD "${cccd || '(trống)'}" không hợp lệ (cần đủ 12 chữ số — kiểm tra ô có bị mất số 0 đầu)` }); continue; }
-    if (!isValidPhone(phone)) { errors.push({ row: line, message: `Số điện thoại "${phone || '(trống)'}" không hợp lệ` }); continue; }
-    if (seen.has(cccd)) { errors.push({ row: line, message: `CCCD ${cccd} trùng với dòng ${seen.get(cccd)}` }); continue; }
-    seen.set(cccd, line);
-
+    const rec = { stt: null, cccd: null, full_name: null, unit: null, phone: null, email: null, extra: null };
     const extra = {};
-    extraIdx.forEach(({ label, col: c }) => {
-      const v = c >= 0 ? String(r[c]).trim() : '';
-      if (v) extra[label] = v;
-    });
+    let rowError = null;
 
-    rows.push({
-      stt: parseInt(idx.stt >= 0 ? r[idx.stt] : '', 10) || rows.length + 1,
-      cccd,
-      full_name: fullName,
-      unit: String(idx.unit >= 0 ? r[idx.unit] : '').trim() || null,
-      phone,
-      email: String(idx.email >= 0 ? r[idx.email] : '').trim() || null,
-      extra: Object.keys(extra).length ? extra : null,
-    });
+    for (const c of colIdx) {
+      let v = c.idx >= 0 ? String(r[c.idx]).trim() : '';
+      if (c.key === 'cccd') v = normalizeCccd(v);
+      if (c.key === 'phone') v = normalizePhone(v);
+      if (!v) {
+        if (c.required) { rowError = `Thiếu ${c.label}`; break; }
+        continue;
+      }
+      if (c.key === 'cccd' && !isValidCccd(v)) { rowError = `${c.label} "${v}" không hợp lệ (cần đủ 12 chữ số — kiểm tra ô có bị mất số 0 đầu)`; break; }
+      if (c.key === 'phone' && !isValidPhone(v)) { rowError = `${c.label} "${v}" không hợp lệ`; break; }
+      if (c.kind === 'core') rec[c.key] = v;
+      else extra[c.key] = v.slice(0, 200);
+    }
+    if (rowError) { errors.push({ row: line, message: rowError }); continue; }
+
+    // Chống trùng theo CCCD (nếu có cột CCCD và có giá trị)
+    if (rec.cccd) {
+      if (seenCccd.has(rec.cccd)) { errors.push({ row: line, message: `CCCD ${rec.cccd} trùng với dòng ${seenCccd.get(rec.cccd)}` }); continue; }
+      seenCccd.set(rec.cccd, line);
+    }
+
+    rec.stt = parseInt(sttIdx >= 0 ? r[sttIdx] : '', 10) || rows.length + 1;
+    rec.extra = Object.keys(extra).length ? extra : null;
+    rows.push(rec);
   }
   return { rows, errors };
 }
 
-// Xuất kết quả điểm danh
-function buildExport(session, attendees, stats, extraFields = []) {
-  // Cột bổ sung: theo cấu hình hiện tại + các trường cũ còn trong dữ liệu (nếu cấu hình đã đổi)
-  const extraCols = [...extraFields];
-  attendees.forEach((a) => {
-    Object.keys(a.extra || {}).forEach((k) => { if (!extraCols.includes(k)) extraCols.push(k); });
-  });
-  const dataRows = [
-    [...HEADERS, ...extraCols, 'Trạng thái', 'Thời gian điểm danh', 'Hình thức'],
-    ...attendees.map((a) => [
-      a.stt, a.cccd, a.full_name, a.unit || '', a.phone || '', a.email || '',
-      ...extraCols.map((k) => (a.extra && a.extra[k]) || ''),
-      a.status === 'present' ? 'Có mặt' : 'Vắng',
-      a.checked_in_at || '',
-      a.checkin_type === 'qr' ? 'QR' : a.checkin_type === 'manual' ? 'BTC xác nhận' : a.checkin_type === 'supplement' ? 'Bổ sung' : '',
-    ]),
-  ];
+function formOf(a) {
+  if (a.self_registered) return 'Ghi danh tự do';
+  if (a.checkin_type === 'qr') return 'QR';
+  if (a.checkin_type === 'manual') return 'BTC xác nhận';
+  if (a.checkin_type === 'supplement') return 'Bổ sung';
+  return '';
+}
+
+// Xuất kết quả. columns = [{key,label}] (không gồm STT); tự thêm cột dữ liệu cũ còn sót.
+function buildExport(session, attendees, stats, columns = []) {
+  const cols = [{ key: 'stt', label: 'STT' }, ...columns];
+  const shown = new Set(cols.map((c) => c.key));
+  attendees.forEach((a) => Object.keys(a.extra || {}).forEach((k) => {
+    if (!shown.has(k)) { cols.push({ key: k, label: k }); shown.add(k); }
+  }));
+
+  const header = [...cols.map((c) => c.label), 'Trạng thái', 'Thời gian điểm danh', 'Hình thức'];
+  const dataRows = [header, ...attendees.map((a) => [
+    ...cols.map((c) => cellValue(a, c.key)),
+    a.status === 'present' ? 'Có mặt' : 'Vắng',
+    a.checked_in_at || '',
+    formOf(a),
+  ])];
   const ws = XLSX.utils.aoa_to_sheet(dataRows);
-  attendees.forEach((a, i) => {
-    const row = i + 2;
-    [`B${row}`, `E${row}`].forEach((addr) => { if (ws[addr]) { ws[addr].t = 's'; ws[addr].z = '@'; } });
-  });
-  ws['!cols'] = [{ wch: 5 }, { wch: 16 }, { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 25 },
-    ...extraCols.map(() => ({ wch: 18 })), { wch: 12 }, { wch: 20 }, { wch: 14 }];
+  markTextColumns(ws, cols, attendees.length);
+  ws['!cols'] = [...cols.map((c) => ({ wch: widthOf(c.key) })), { wch: 12 }, { wch: 20 }, { wch: 14 }];
 
   const statsWs = XLSX.utils.aoa_to_sheet([
     ['Phiên điểm danh', session.name],
     ['Thời gian bắt đầu', session.opened_at || ''],
     ['Thời gian kết thúc', session.closed_at || ''],
-    ['Tổng số', stats.total],
-    ['Có mặt', stats.present],
-    ['Vắng mặt', stats.absent],
-    ['Tỉ lệ tham gia', `${stats.rate}%`],
+    [session.type === 'open' ? 'Số người ghi danh' : 'Tổng số', session.type === 'open' ? stats.present : stats.total],
+    ...(session.type === 'open' ? [] : [['Có mặt', stats.present], ['Vắng mặt', stats.absent], ['Tỉ lệ tham gia', `${stats.rate}%`]]),
   ]);
   statsWs['!cols'] = [{ wch: 22 }, { wch: 30 }];
 
@@ -127,4 +164,4 @@ function buildExport(session, attendees, stats, extraFields = []) {
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 }
 
-module.exports = { HEADERS, buildTemplate, parseAttendees, buildExport };
+module.exports = { buildTemplate, parseAttendees, buildExport };

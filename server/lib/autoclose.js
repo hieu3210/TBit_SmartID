@@ -1,6 +1,6 @@
 const { query, nowVN } = require('../db');
 const { buildExport } = require('./excel');
-const { getExtraFields } = require('./fields');
+const { getListFields, columnsForSession } = require('./fields');
 const { sendMail, emailLayout } = require('./mailer');
 
 // Hết giờ ends_at thì tự kết thúc điểm danh và gửi email tổng hợp cho người tạo phiên.
@@ -38,11 +38,8 @@ async function sendSummary(session) {
   const stats = await statsOf(session.id);
   const { rows: attendees } = await query('SELECT * FROM attendees WHERE session_id = $1 ORDER BY stt', [session.id]);
   const isOpen = session.type === 'open';
-  const coreKeys = ['full_name', 'phone', 'cccd', 'unit', 'email'];
-  const extraFields = isOpen
-    ? (session.fields || []).filter((f) => !coreKeys.includes(f.key)).map((f) => f.label)
-    : await getExtraFields();
-  const excel = buildExport(session, attendees, stats, extraFields);
+  const columns = columnsForSession(session, await getListFields());
+  const excel = buildExport(session, attendees, stats, columns);
 
   const rows = isOpen
     ? `<tr><td style="padding:4px 12px 4px 0;">Số người đã ghi danh</td><td><b>${stats.present}</b></td></tr>`

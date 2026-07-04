@@ -101,6 +101,14 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ends_at TEXT;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS qr_seconds INTEGER;
 
+-- Phiên theo danh sách: trường bắt buộc nhập để điểm danh + cho phép ghi danh tự do (walk-in)
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS checkin_fields JSONB;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS allow_open BOOLEAN NOT NULL DEFAULT false;
+-- Đánh dấu người ghi danh tự do (không có trong danh sách gốc)
+ALTER TABLE attendees ADD COLUMN IF NOT EXISTS self_registered BOOLEAN NOT NULL DEFAULT false;
+-- Họ và tên không còn bắt buộc (có thể điểm danh chỉ bằng SĐT/CCCD)
+ALTER TABLE attendees ALTER COLUMN full_name DROP NOT NULL;
+
 -- Danh sách đại biểu lưu sẵn để dùng lại
 CREATE TABLE IF NOT EXISTS saved_lists (
   id SERIAL PRIMARY KEY,

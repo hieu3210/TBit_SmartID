@@ -4,7 +4,7 @@ const { query, nowVN } = require('../db');
 const { rateLimit } = require('../middleware');
 const { verifyCode } = require('../lib/qrtoken');
 const { normalizeCccd, normalizePhone, isValidCccd, isValidPhone } = require('../lib/normalize');
-const { DEFAULT_OPEN_FIELDS } = require('../lib/fields');
+const { DEFAULT_OPEN_FIELDS, getListFields, checkinFieldDefs } = require('../lib/fields');
 const { qrSecondsFor } = require('../lib/sysconfig');
 const { maybeAutoClose } = require('../lib/autoclose');
 
@@ -12,25 +12,30 @@ const router = express.Router();
 
 const DEVICE_COOKIE = 'tbit_did';
 const ONE_YEAR = 365 * 24 * 3600 * 1000;
+const CORE_KEYS = ['cccd', 'full_name', 'unit', 'phone', 'email'];
 
 async function getSessionByToken(token) {
   const { rows } = await query('SELECT * FROM sessions WHERE token = $1', [token]);
   return maybeAutoClose(rows[0]); // hết giờ hẹn thì tự kết thúc ngay khi được truy cập
 }
 
-// Thông tin công khai của phiên (tên, trạng thái) cho trang điểm danh
+// Thông tin công khai của phiên cho trang điểm danh
 router.get('/api/checkin/:token/info', rateLimit(60), async (req, res, next) => {
   try {
     const s = await getSessionByToken(req.params.token);
     if (!s) return res.status(404).json({ error: 'Không tìm thấy phiên điểm danh' });
-    res.json({
-      name: s.name, status: s.status, type: s.type,
-      fields: s.type === 'open' ? (s.fields || DEFAULT_OPEN_FIELDS) : undefined,
-    });
+    const out = { name: s.name, status: s.status, type: s.type };
+    if (s.type === 'open') {
+      out.fields = s.fields || DEFAULT_OPEN_FIELDS;
+    } else {
+      out.checkin_fields = checkinFieldDefs(s, await getListFields());
+      out.allow_open = !!s.allow_open;
+      if (s.allow_open) out.open_fields = s.fields || DEFAULT_OPEN_FIELDS;
+    }
+    res.json(out);
   } catch (e) { next(e); }
 });
 
-// Lấy/tạo mã thiết bị từ cookie ký (ràng buộc thiết bị chống điểm danh hộ)
 function deviceIdOf(req, res) {
   let did = req.signedCookies[DEVICE_COOKIE];
   if (!did) {
@@ -40,8 +45,31 @@ function deviceIdOf(req, res) {
   return did;
 }
 
-// Ghi danh tự do (phiên không theo danh sách)
-async function openCheckin(s, req, res) {
+async function deviceFlag(sessionId, did) {
+  const usedBefore = (await query(
+    `SELECT COUNT(*)::int AS n FROM attendees WHERE session_id = $1 AND device_id = $2 AND status = 'present'`,
+    [sessionId, did])).rows[0].n;
+  return usedBefore >= 1 ? 'review' : 'ok';
+}
+
+// Tên hiển thị: ưu tiên Họ và tên, không có thì dùng SĐT/CCCD
+function displayName(a) {
+  return (a && (a.full_name || a.phone || a.cccd)) || 'Bạn';
+}
+
+function successPayload(fullName, unit, checkedInAt, flag, verb) {
+  return {
+    ok: true, full_name: fullName, unit: unit || '', checked_in_at: checkedInAt,
+    flagged: flag === 'review',
+    message: flag === 'review'
+      ? `Đã ghi nhận, tuy nhiên thiết bị này vừa ${verb} cho người khác nên lượt của bạn cần ban tổ chức xác nhận.`
+      : `${verb === 'ghi danh' ? 'Ghi danh' : 'Điểm danh'} thành công. Chào mừng bạn đến với sự kiện!`,
+  };
+}
+
+// Ghi danh tự do: phiên "không theo danh sách", hoặc nhánh walk-in của phiên theo danh sách.
+// self = true khi là walk-in trên phiên danh sách (đánh dấu ghi danh thêm).
+async function openCheckin(s, req, res, { self = false } = {}) {
   const values = (req.body || {}).values || {};
   const fields = s.fields || DEFAULT_OPEN_FIELDS;
   const core = { full_name: null, cccd: null, phone: null, unit: null, email: null };
@@ -57,52 +85,92 @@ async function openCheckin(s, req, res) {
     }
     if (f.key === 'cccd' && !isValidCccd(v)) return res.status(400).json({ error: 'Số CCCD không hợp lệ (cần đủ 12 chữ số)' });
     if (f.key === 'phone' && !isValidPhone(v)) return res.status(400).json({ error: 'Số điện thoại không hợp lệ' });
-    if (v.length > 200) v = v.slice(0, 200);
+    v = v.slice(0, 200);
     if (f.key in core) core[f.key] = v;
     else extra[f.label] = v;
   }
 
-  // Chặn ghi danh trùng theo SĐT / CCCD
-  if (core.phone) {
-    const { rows } = await query('SELECT checked_in_at FROM attendees WHERE session_id = $1 AND phone = $2 LIMIT 1', [s.id, core.phone]);
-    if (rows.length) return res.status(400).json({ error: `Số điện thoại này đã ghi danh lúc ${rows[0].checked_in_at}` });
-  }
-  if (core.cccd) {
-    const { rows } = await query('SELECT checked_in_at FROM attendees WHERE session_id = $1 AND cccd = $2 LIMIT 1', [s.id, core.cccd]);
-    if (rows.length) return res.status(400).json({ error: `Số CCCD này đã ghi danh lúc ${rows[0].checked_in_at}` });
+  // Đã có trong danh sách (theo CCCD/SĐT)? Nếu chưa điểm danh thì đánh dấu có mặt, tránh trùng.
+  let existing = null;
+  if (core.cccd) existing = (await query('SELECT * FROM attendees WHERE session_id = $1 AND cccd = $2 LIMIT 1', [s.id, core.cccd])).rows[0] || null;
+  if (!existing && core.phone) existing = (await query('SELECT * FROM attendees WHERE session_id = $1 AND phone = $2 LIMIT 1', [s.id, core.phone])).rows[0] || null;
+  if (existing && existing.status === 'present') {
+    return res.status(400).json({ error: `Thông tin này đã ${self ? 'ghi danh' : 'điểm danh'} lúc ${existing.checked_in_at}` });
   }
 
-  // Ràng buộc thiết bị: từ lượt thứ 2 trên cùng máy thì gắn cờ chờ BTC duyệt
   const did = deviceIdOf(req, res);
-  const usedBefore = (await query(
-    `SELECT COUNT(*)::int AS n FROM attendees WHERE session_id = $1 AND device_id = $2 AND status = 'present'`,
-    [s.id, did])).rows[0].n;
-  const flag = usedBefore >= 1 ? 'review' : 'ok';
+  const flag = await deviceFlag(s.id, did);
+  const type = s.status === 'supplement' ? 'supplement' : 'qr';
+  const checkedInAt = nowVN();
 
+  if (existing) {
+    await query(
+      `UPDATE attendees SET status = 'present', checked_in_at = $1, checkin_type = $2, device_id = $3, client_ip = $4, flag = $5 WHERE id = $6`,
+      [checkedInAt, type, did, req.ip, flag, existing.id]);
+    return res.json(successPayload(displayName(existing), existing.unit, checkedInAt, flag, 'điểm danh'));
+  }
+  await query(
+    `INSERT INTO attendees (session_id, stt, cccd, full_name, unit, phone, email, extra, status, checked_in_at, checkin_type, device_id, client_ip, flag, self_registered)
+     VALUES ($1, (SELECT COALESCE(MAX(stt), 0) + 1 FROM attendees WHERE session_id = $1),
+             $2, $3, $4, $5, $6, $7, 'present', $8, $9, $10, $11, $12, $13)`,
+    [s.id, core.cccd, core.full_name, core.unit, core.phone, core.email,
+      Object.keys(extra).length ? JSON.stringify(extra) : null,
+      checkedInAt, type, did, req.ip, flag, self]
+  );
+  return res.json(successPayload(displayName(core), core.unit, checkedInAt, flag, 'ghi danh'));
+}
+
+// So khớp giá trị theo loại trường
+function normField(key, v) {
+  if (key === 'cccd') return normalizeCccd(v);
+  if (key === 'phone') return normalizePhone(v);
+  return String(v == null ? '' : v).trim().toLowerCase();
+}
+function storedField(a, key) {
+  return CORE_KEYS.includes(key) ? a[key] : (a.extra && a.extra[key]);
+}
+
+// Điểm danh theo danh sách: khớp các trường bắt buộc do phiên cấu hình
+async function listCheckin(s, req, res) {
+  const defs = checkinFieldDefs(s, await getListFields());
+  const body = req.body || {};
+  // Nhận values{...}; tương thích ngược với trang cũ gửi cccd/phone rời
+  const values = body.values || { cccd: body.cccd, phone: body.phone };
+
+  const entered = {};
+  for (const f of defs) {
+    const v = normField(f.key, values[f.key]);
+    if (!v) return res.status(400).json({ error: `Vui lòng nhập ${f.label}` });
+    entered[f.key] = v;
+  }
+
+  // Tìm theo trường định danh chính (CCCD ưu tiên, rồi SĐT), sau đó đối chiếu các trường còn lại
+  const primary = defs.find((f) => f.key === 'cccd') || defs.find((f) => f.key === 'phone') || defs[0];
+  const col = primary.key; // 'cccd' hoặc 'phone' (đã đảm bảo ở cấu hình)
+  const { rows: candidates } = await query(
+    `SELECT * FROM attendees WHERE session_id = $1 AND ${col} = $2`, [s.id, entered[col]]);
+
+  const matched = candidates.filter((a) => defs.every((f) => normField(f.key, storedField(a, f.key)) === entered[f.key]));
+  if (matched.length === 0) {
+    return res.status(404).json({ error: 'Không tìm thấy thông tin trong danh sách sự kiện — vui lòng kiểm tra lại hoặc liên hệ ban tổ chức' });
+  }
+  if (matched.length > 1) {
+    return res.status(400).json({ error: 'Thông tin trùng với nhiều người trong danh sách — vui lòng liên hệ ban tổ chức' });
+  }
+  const a = matched[0];
+  if (a.status === 'present') return res.status(400).json({ error: `Bạn đã điểm danh lúc ${a.checked_in_at}` });
+
+  const did = deviceIdOf(req, res);
+  const flag = await deviceFlag(s.id, did);
   const type = s.status === 'supplement' ? 'supplement' : 'qr';
   const checkedInAt = nowVN();
   await query(
-    `INSERT INTO attendees (session_id, stt, cccd, full_name, unit, phone, email, extra, status, checked_in_at, checkin_type, device_id, client_ip, flag)
-     VALUES ($1, (SELECT COALESCE(MAX(stt), 0) + 1 FROM attendees WHERE session_id = $1),
-             $2, $3, $4, $5, $6, $7, 'present', $8, $9, $10, $11, $12)`,
-    [s.id, core.cccd, core.full_name, core.unit, core.phone, core.email,
-      Object.keys(extra).length ? JSON.stringify(extra) : null,
-      checkedInAt, type, did, req.ip, flag]
-  );
-
-  res.json({
-    ok: true,
-    full_name: core.full_name,
-    unit: core.unit,
-    checked_in_at: checkedInAt,
-    flagged: flag === 'review',
-    message: flag === 'review'
-      ? 'Đã ghi nhận, tuy nhiên thiết bị này vừa ghi danh cho người khác nên lượt của bạn cần ban tổ chức xác nhận.'
-      : 'Ghi danh thành công. Chào mừng bạn đến với sự kiện!',
-  });
+    `UPDATE attendees SET status = 'present', checked_in_at = $1, checkin_type = $2, device_id = $3, client_ip = $4, flag = $5 WHERE id = $6`,
+    [checkedInAt, type, did, req.ip, flag, a.id]);
+  res.json(successPayload(displayName(a), a.unit, checkedInAt, flag, 'điểm danh'));
 }
 
-// Điểm danh
+// Điểm danh / ghi danh
 router.post('/api/checkin/:token', rateLimit(15), async (req, res, next) => {
   try {
     const s = await getSessionByToken(req.params.token);
@@ -112,50 +180,17 @@ router.post('/api/checkin/:token', rateLimit(15), async (req, res, next) => {
     }
 
     // Lớp 1: mã QR động — ảnh chụp QR cũ hết hạn ngay sau chu kỳ đổi mã
-    const { cccd, phone, c } = req.body || {};
-    if (!verifyCode(s.token, String(c || ''), await qrSecondsFor(s))) {
+    if (!verifyCode(s.token, String((req.body || {}).c || ''), await qrSecondsFor(s))) {
       return res.status(400).json({ error: 'Mã QR đã hết hạn — vui lòng quét lại mã đang hiển thị trên màn hình' });
     }
 
-    // Phiên ghi danh tự do: không đối chiếu danh sách, tạo bản ghi mới
     if (s.type === 'open') return await openCheckin(s, req, res);
-
-    const nCccd = normalizeCccd(cccd);
-    const nPhone = normalizePhone(phone);
-    if (!nCccd || !nPhone) return res.status(400).json({ error: 'Vui lòng nhập đủ số CCCD và số điện thoại' });
-
-    const { rows } = await query('SELECT * FROM attendees WHERE session_id = $1 AND cccd = $2', [s.id, nCccd]);
-    const a = rows[0];
-    if (!a) return res.status(404).json({ error: 'Số CCCD không có trong danh sách sự kiện — vui lòng liên hệ ban tổ chức' });
-    if (normalizePhone(a.phone) !== nPhone) return res.status(400).json({ error: 'Số điện thoại không khớp với danh sách đăng ký' });
-    if (a.status === 'present') {
-      return res.status(400).json({ error: `Bạn đã điểm danh lúc ${a.checked_in_at}` });
+    // Phiên theo danh sách: nhánh ghi danh tự do (người không có trong danh sách)
+    if ((req.body || {}).mode === 'open') {
+      if (!s.allow_open) return res.status(400).json({ error: 'Phiên này không cho phép ghi danh tự do' });
+      return await openCheckin(s, req, res, { self: true });
     }
-
-    // Lớp 1: ràng buộc thiết bị — thiết bị thứ 2 trở đi bị gắn cờ chờ BTC duyệt
-    const did = deviceIdOf(req, res);
-    const usedBefore = (await query(
-      `SELECT COUNT(*)::int AS n FROM attendees WHERE session_id = $1 AND device_id = $2 AND status = 'present'`,
-      [s.id, did])).rows[0].n;
-    const flag = usedBefore >= 1 ? 'review' : 'ok';
-
-    const type = s.status === 'supplement' ? 'supplement' : 'qr';
-    const checkedInAt = nowVN();
-    await query(
-      `UPDATE attendees SET status = 'present', checked_in_at = $1, checkin_type = $2, device_id = $3, client_ip = $4, flag = $5 WHERE id = $6`,
-      [checkedInAt, type, did, req.ip, flag, a.id]
-    );
-
-    res.json({
-      ok: true,
-      full_name: a.full_name,
-      unit: a.unit,
-      checked_in_at: checkedInAt,
-      flagged: flag === 'review',
-      message: flag === 'review'
-        ? 'Đã ghi nhận, tuy nhiên thiết bị này vừa điểm danh cho người khác nên lượt của bạn cần ban tổ chức xác nhận.'
-        : 'Điểm danh thành công. Chào mừng bạn đến với sự kiện!',
-    });
+    return await listCheckin(s, req, res);
   } catch (e) { next(e); }
 });
 

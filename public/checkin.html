@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Điểm danh sự kiện — TBit SmartID</title>
 <link rel="stylesheet" href="/css/style.css">
+<script>(function(){try{var t=localStorage.getItem("tbit-theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
 </head>
 <body>
 
@@ -20,6 +21,10 @@
       <div id="fieldsBox"></div>
       <button class="btn full big" type="submit" id="btnSubmit">✓ Điểm danh</button>
     </form>
+    <div id="openSwitch" class="hidden" style="text-align:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+      <span class="muted">Không có trong danh sách?</span><br>
+      <button class="link-btn" type="button" id="btnShowOpen">Ghi danh tại đây »</button>
+    </div>
   </div>
 
   <!-- Màn hình thành công -->
@@ -45,6 +50,7 @@
 const token = location.pathname.split('/').pop();
 const code = new URLSearchParams(location.search).get('c') || '';
 let info = null;
+let openMode = false; // đang ở nhánh ghi danh tự do (walk-in) của phiên danh sách
 
 // Thuộc tính ô nhập theo loại trường
 const INPUT_ATTRS = {
@@ -54,20 +60,32 @@ const INPUT_ATTRS = {
   full_name: 'autocomplete="name" maxlength="120"',
 };
 
+function fieldInputs(fields, withRequiredMark) {
+  return fields.map((f, i) => `
+    <label for="f_${i}">${esc(f.label)}${withRequiredMark ? (f.required ? ' <span style="color:var(--red);">*</span>' : ' <span class="muted">(không bắt buộc)</span>') : ''}</label>
+    <input id="f_${i}" data-key="${esc(f.key)}" ${INPUT_ATTRS[f.key] || 'maxlength="200"'} ${f.required ? 'required' : ''}>`).join('');
+}
+
 function renderForm() {
   if (info.type === 'open') {
     el('eventSub').textContent = 'Điền thông tin để ghi danh tham dự sự kiện';
     el('btnSubmit').textContent = '✓ Ghi danh';
-    el('fieldsBox').innerHTML = info.fields.map((f, i) => `
-      <label for="f_${i}">${esc(f.label)}${f.required ? ' <span style="color:var(--red);">*</span>' : ' <span class="muted">(không bắt buộc)</span>'}</label>
-      <input id="f_${i}" data-key="${esc(f.key)}" ${INPUT_ATTRS[f.key] || 'maxlength="200"'} ${f.required ? 'required' : ''}>`).join('');
-  } else {
-    el('fieldsBox').innerHTML = `
-      <label for="cccd">Số CCCD (12 số)</label>
-      <input id="cccd" ${INPUT_ATTRS.cccd} required>
-      <label for="phone">Số điện thoại</label>
-      <input id="phone" ${INPUT_ATTRS.phone} required>`;
+    el('fieldsBox').innerHTML = fieldInputs(info.fields, true);
+    return;
   }
+  if (openMode) {
+    // Nhánh ghi danh tự do trên phiên theo danh sách
+    el('eventSub').textContent = 'Bạn không có trong danh sách — điền thông tin để ghi danh';
+    el('btnSubmit').textContent = '✓ Ghi danh';
+    el('fieldsBox').innerHTML = fieldInputs(info.open_fields, true);
+    el('openSwitch').classList.add('hidden');
+    return;
+  }
+  // Điểm danh theo danh sách: chỉ nhập các trường bắt buộc do BTC cấu hình
+  el('eventSub').textContent = 'Nhập thông tin để xác nhận có mặt';
+  el('btnSubmit').textContent = '✓ Điểm danh';
+  el('fieldsBox').innerHTML = fieldInputs((info.checkin_fields || []).map((f) => ({ ...f, required: true })), false);
+  el('openSwitch').classList.toggle('hidden', !info.allow_open);
 }
 
 async function boot() {
@@ -93,14 +111,10 @@ el('form').addEventListener('submit', async (ev) => {
   const btnLabel = btn.textContent;
   btn.disabled = true; btn.textContent = 'Đang xử lý…';
   try {
-    let body;
-    if (info.type === 'open') {
-      const values = {};
-      el('fieldsBox').querySelectorAll('input[data-key]').forEach((inp) => { values[inp.dataset.key] = inp.value; });
-      body = { values, c: code };
-    } else {
-      body = { cccd: el('cccd').value, phone: el('phone').value, c: code };
-    }
+    const values = {};
+    el('fieldsBox').querySelectorAll('input[data-key]').forEach((inp) => { values[inp.dataset.key] = inp.value; });
+    const body = { values, c: code };
+    if (info.type !== 'open' && openMode) body.mode = 'open'; // nhánh ghi danh tự do
     const r = await api(`/api/checkin/${token}`, { method: 'POST', body });
     hide('formCard'); show('successCard');
     el('successName').textContent = r.full_name;
@@ -113,6 +127,8 @@ el('form').addEventListener('submit', async (ev) => {
     btn.disabled = false; btn.textContent = btnLabel;
   }
 });
+
+el('btnShowOpen').addEventListener('click', () => { openMode = true; clearAlert('alert'); renderForm(); });
 
 boot();
 </script>

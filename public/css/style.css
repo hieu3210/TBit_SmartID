@@ -12,7 +12,62 @@
   --card: #ffffff;
   --border: #e5e7eb;
   --text: #111827;
+  --text-soft: #374151;
+  --input-bg: #ffffff;
+  --accent-soft: #eff6ff;
+  --accent-border: #bfdbfe;
+  --topbar-bg: #1a56db;
+  --shadow: rgba(0, 0, 0, .08);
   --radius: 12px;
+  color-scheme: light;
+}
+
+/* Bộ màu chế độ tối — dùng chung cho lựa chọn thủ công và theo hệ điều hành */
+:root[data-theme="dark"] {
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --green: #34d399;
+  --green-bg: #072a1c;
+  --red: #f87171;
+  --red-bg: #3a1616;
+  --amber: #fbbf24;
+  --amber-bg: #3a2c0a;
+  --gray: #94a3b8;
+  --bg: #0f172a;
+  --card: #1e293b;
+  --border: #334155;
+  --text: #e8eef7;
+  --text-soft: #cbd5e1;
+  --input-bg: #0b1324;
+  --accent-soft: #17263f;
+  --accent-border: #2d456e;
+  --topbar-bg: #0b1220;
+  --shadow: rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary: #3b82f6;
+    --primary-dark: #2563eb;
+    --green: #34d399;
+    --green-bg: #072a1c;
+    --red: #f87171;
+    --red-bg: #3a1616;
+    --amber: #fbbf24;
+    --amber-bg: #3a2c0a;
+    --gray: #94a3b8;
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e8eef7;
+    --text-soft: #cbd5e1;
+    --input-bg: #0b1324;
+    --accent-soft: #17263f;
+    --accent-border: #2d456e;
+    --topbar-bg: #0b1220;
+    --shadow: rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -29,7 +84,7 @@ body {
 
 /* Topbar */
 .topbar {
-  background: var(--primary); color: #fff;
+  background: var(--topbar-bg); color: #fff;
   padding: 12px 16px; display: flex; align-items: center; gap: 14px;
 }
 .topbar .brand {
@@ -38,6 +93,7 @@ body {
 }
 .brand-logo { width: 26px; height: 26px; }
 .topbar .topbar-menu { display: flex; gap: 14px; align-items: center; }
+.theme-toggle { font-size: 17px; line-height: 1; padding: 2px; }
 .topbar .actions { display: flex; gap: 8px; align-items: center; font-size: 14px; }
 .topbar a, .topbar button.link { color: #dbeafe; background: none; border: none; cursor: pointer; font-size: 14px; text-decoration: none; }
 .topbar a:hover, .topbar button.link:hover { color: #fff; }
@@ -49,14 +105,14 @@ body {
 }
 .card h2 { font-size: 18px; margin-bottom: 12px; }
 .card.clickable { cursor: pointer; transition: box-shadow .15s, transform .15s; }
-.card.clickable:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); transform: translateY(-1px); }
+.card.clickable:hover { box-shadow: 0 4px 16px var(--shadow); transform: translateY(-1px); }
 
 /* Forms */
 label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 4px; }
 input, select {
   width: 100%; padding: 12px 14px; font-size: 16px;
   border: 1.5px solid var(--border); border-radius: 10px; margin-bottom: 14px;
-  background: #fff; color: var(--text);
+  background: var(--input-bg); color: var(--text);
 }
 input:focus, select:focus { outline: none; border-color: var(--primary); }
 input[type="radio"], input[type="checkbox"] {
@@ -81,7 +137,7 @@ label.radio input { margin-top: 2px; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn.full { width: 100%; }
 .btn.big { padding: 16px 28px; font-size: 18px; }
-.btn.secondary { background: #fff; color: var(--text); border: 1.5px solid var(--border); }
+.btn.secondary { background: var(--card); color: var(--text); border: 1.5px solid var(--border); }
 .btn.secondary:hover { background: var(--bg); }
 .btn.danger { background: var(--red); }
 .btn.danger:hover { background: #a31515; }
@@ -90,9 +146,9 @@ label.radio input { margin-top: 2px; }
 
 /* Badges */
 .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-.badge.draft { background: #e5e7eb; color: #374151; }
+.badge.draft { background: var(--border); color: var(--text-soft); }
 .badge.open { background: var(--green-bg); color: var(--green); }
-.badge.closed { background: #dbeafe; color: var(--primary); }
+.badge.closed { background: var(--accent-soft); color: var(--primary); }
 .badge.supplement { background: var(--amber-bg); color: var(--amber); }
 
 /* Alerts */
@@ -152,14 +208,76 @@ tr:last-child td { border-bottom: none; }
   padding: 32px 16px; text-align: center; color: var(--gray); cursor: pointer;
   transition: border-color .15s, background .15s; margin-bottom: 14px;
 }
-.dropzone:hover, .dropzone.drag { border-color: var(--primary); background: #eff6ff; }
+.dropzone:hover, .dropzone.drag { border-color: var(--primary); background: var(--accent-soft); }
+
+/* ===== Landing (trang giới thiệu) ===== */
+.landing { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+.hero {
+  display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 32px; align-items: center;
+  padding: 48px 0 40px;
+}
+.hero-eyebrow {
+  display: inline-block; font-size: 13px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--primary); background: var(--accent-soft);
+  padding: 5px 12px; border-radius: 999px; margin-bottom: 16px;
+}
+.hero h1 { font-size: 38px; line-height: 1.15; margin-bottom: 16px; letter-spacing: -.01em; }
+.hero h1 .accent { color: var(--primary); }
+.hero p.lead { font-size: 17px; color: var(--text-soft); margin-bottom: 24px; max-width: 30em; }
+.hero-cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.hero-illus { width: 100%; height: auto; }
+.hero-note { margin-top: 14px; font-size: 14px; color: var(--gray); }
+.hero-note a { color: var(--primary); font-weight: 600; text-decoration: none; }
+
+.section { padding: 36px 0; }
+.section-title { text-align: center; font-size: 26px; margin-bottom: 6px; }
+.section-sub { text-align: center; color: var(--gray); margin-bottom: 28px; }
+
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+.info-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px;
+  transition: box-shadow .15s, transform .15s;
+}
+.info-card:hover { box-shadow: 0 8px 24px var(--shadow); transform: translateY(-2px); }
+.info-card .ic { font-size: 30px; display: block; margin-bottom: 10px; }
+.info-card h3 { font-size: 17px; margin-bottom: 6px; }
+.info-card p { font-size: 14px; color: var(--text-soft); line-height: 1.55; }
+
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; counter-reset: step; }
+.step-card { position: relative; padding: 22px 20px 20px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+.step-card .n {
+  width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-weight: 800; margin-bottom: 12px;
+}
+.step-card h3 { font-size: 16px; margin-bottom: 5px; }
+.step-card p { font-size: 14px; color: var(--text-soft); line-height: 1.55; }
+
+.contact-banner {
+  background: linear-gradient(120deg, var(--primary) 0%, #0e3a8f 100%); color: #fff;
+  border-radius: 18px; padding: 34px 30px; text-align: center; margin: 8px 0 44px;
+}
+.contact-banner h2 { font-size: 24px; margin-bottom: 8px; }
+.contact-banner p { color: #dbeafe; margin-bottom: 20px; }
+.contact-rows { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.contact-pill {
+  display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 10px 18px;
+  font-size: 15px; font-weight: 600; color: #fff; text-decoration: none;
+}
+.contact-pill:hover { background: rgba(255,255,255,.24); }
+
+@media (max-width: 760px) {
+  .hero { grid-template-columns: 1fr; padding: 28px 0; gap: 20px; }
+  .hero-illus { max-width: 360px; margin: 0 auto; order: -1; }
+  .hero h1 { font-size: 30px; }
+}
 
 /* Chip trường Excel */
 .chip-list { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 34px; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
-  background: #eff6ff; color: var(--primary); border: 1px solid #bfdbfe;
+  background: var(--accent-soft); color: var(--primary); border: 1px solid var(--accent-border);
 }
 .chip.core { background: var(--bg); color: var(--gray); border-color: var(--border); }
 .chip-x {
@@ -233,7 +351,7 @@ body { padding-bottom: 58px; }
   padding: 10px 12px; font-size: 13px; line-height: 1.45;
 }
 .contact-box {
-  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;
+  background: var(--accent-soft); border: 1px solid var(--accent-border); border-radius: 10px;
   padding: 12px 14px; line-height: 1.7;
 }
 .contact-box .contact-name { font-weight: 800; font-size: 15px; }

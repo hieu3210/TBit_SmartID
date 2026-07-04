@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Quản trị — TBit SmartID</title>
 <link rel="stylesheet" href="/css/style.css">
+<script>(function(){try{var t=localStorage.getItem("tbit-theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
 </head>
 <body>
 
@@ -60,26 +61,29 @@
     </div>
   </div>
 
-  <!-- ===== Trường Excel ===== -->
+  <!-- ===== Trường danh sách điểm danh ===== -->
   <div class="card">
-    <h2>Trường thông tin file Excel</h2>
+    <h2>Trường thông tin danh sách điểm danh</h2>
     <p class="muted" style="margin-bottom:10px;">
-      Các trường <b>mặc định</b> luôn có trong template và file xuất kết quả.
-      Bạn có thể bổ sung trường riêng (VD: Chức vụ, Mã cán bộ…) — trường bổ sung sẽ xuất hiện
-      trong template Excel, bảng xem trước và file kết quả.
+      Chọn trường nào <b>có trong mẫu</b> (người dùng tải template về sẽ thấy) và trường nào
+      <b>bắt buộc nhập</b> khi chuẩn bị danh sách. Có thể thêm trường riêng (VD: Chức vụ, Mã cán bộ).
+      Cần bật ít nhất một trong hai trường định danh (Số CCCD / Số điện thoại).
     </p>
     <div id="fieldsAlert" class="alert hidden"></div>
-    <label>Trường mặc định</label>
-    <div class="chip-list" id="coreFields"></div>
-    <label style="margin-top:12px;">Trường bổ sung</label>
-    <div class="chip-list" id="extraFields"><span class="muted">Chưa có trường bổ sung</span></div>
-    <form id="fieldForm" class="row mt" style="align-items:flex-end;">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Trường</th><th style="text-align:center;">Có trong mẫu</th><th style="text-align:center;">Bắt buộc</th><th></th></tr></thead>
+      <tbody id="fieldRows"></tbody>
+    </table></div>
+    <form id="addFieldForm" class="row mt" style="align-items:flex-end;">
       <div style="flex:1;min-width:180px;">
-        <input id="newField" placeholder="VD: Chức vụ" maxlength="40" style="margin-bottom:0;">
+        <input id="newField" placeholder="Thêm trường riêng — VD: Chức vụ" maxlength="40" style="margin-bottom:0;">
       </div>
-      <button class="btn" type="submit">＋ Thêm trường</button>
-      <button class="btn secondary" type="button" id="btnFieldsDefault">↺ Về mặc định</button>
+      <button class="btn secondary" type="submit">＋ Thêm trường</button>
     </form>
+    <div class="row mt">
+      <button class="btn" id="btnSaveFields">💾 Lưu cấu hình trường</button>
+      <button class="btn secondary" type="button" id="btnFieldsDefault">↺ Về mặc định</button>
+    </div>
   </div>
 
   <!-- ===== Người dùng ===== -->
@@ -268,44 +272,69 @@ async function removeUser(id, username) {
   catch (e) { showAlert('alert', e.message); }
 }
 
-/* ---------- Cấu hình trường Excel ---------- */
-let extraFields = [];
+/* ---------- Cấu hình trường danh sách điểm danh ---------- */
+const CORE_KEYS = ['cccd', 'full_name', 'unit', 'phone', 'email'];
+let listFields = [];
 
-function renderFields(cfg) {
-  extraFields = cfg.extra;
-  el('coreFields').innerHTML = cfg.core.map((f) => `<span class="chip core">${esc(f)}</span>`).join('');
-  el('extraFields').innerHTML = extraFields.length
-    ? extraFields.map((f, i) => `<span class="chip">${esc(f)} <button type="button" class="chip-x" onclick="removeField(${i})" aria-label="Xoá trường">×</button></span>`).join('')
-    : '<span class="muted">Chưa có trường bổ sung</span>';
+function renderFields() {
+  el('fieldRows').innerHTML = listFields.map((f, i) => {
+    const isCore = CORE_KEYS.includes(f.key);
+    const locked = false; // mọi trường đều có thể bật/tắt và đặt bắt buộc tuỳ ý
+    return `<tr>
+      <td><b>${esc(f.label)}</b>${isCore ? '' : ' <span class="muted">(trường riêng)</span>'}</td>
+      <td style="text-align:center;"><input type="checkbox" ${f.enabled ? 'checked' : ''} ${locked ? 'disabled' : ''} onchange="setField(${i},'enabled',this.checked)"></td>
+      <td style="text-align:center;"><input type="checkbox" ${f.required ? 'checked' : ''} ${locked || !f.enabled ? 'disabled' : ''} onchange="setField(${i},'required',this.checked)"></td>
+      <td style="text-align:right;">${isCore ? '' : `<button class="btn danger small" onclick="removeField(${i})">Xoá</button>`}</td>
+    </tr>`;
+  }).join('');
 }
+
+function setField(i, prop, val) {
+  listFields[i][prop] = val;
+  if (prop === 'enabled' && !val) listFields[i].required = false;
+  renderFields();
+}
+function removeField(i) { listFields.splice(i, 1); renderFields(); }
 
 async function loadFields() {
-  renderFields(await api('/api/settings/excel-fields'));
+  const cfg = await api('/api/settings/list-fields');
+  listFields = cfg.fields;
+  renderFields();
 }
 
-async function saveFields(extra) {
-  clearAlert('fieldsAlert');
-  try {
-    renderFields(await api('/api/settings/excel-fields', { method: 'PUT', body: { extra } }));
-    showAlert('fieldsAlert', 'Đã lưu cấu hình trường Excel', 'success');
-  } catch (e) { showAlert('fieldsAlert', e.message); }
-}
-
-el('fieldForm').addEventListener('submit', (ev) => {
+el('addFieldForm').addEventListener('submit', (ev) => {
   ev.preventDefault();
   const label = el('newField').value.trim();
   if (!label) return;
+  if (listFields.some((f) => f.label.toLowerCase() === label.toLowerCase())) {
+    return showAlert('fieldsAlert', 'Trường này đã có trong danh sách');
+  }
+  listFields.push({ key: label, label, enabled: true, required: false });
   el('newField').value = '';
-  saveFields([...extraFields, label]);
+  renderFields();
 });
 
-function removeField(i) {
-  saveFields(extraFields.filter((_, j) => j !== i));
-}
+el('btnSaveFields').addEventListener('click', async () => {
+  clearAlert('fieldsAlert');
+  try {
+    const cfg = await api('/api/settings/list-fields', { method: 'PUT', body: { fields: listFields } });
+    listFields = cfg.fields;
+    renderFields();
+    showAlert('fieldsAlert', 'Đã lưu cấu hình trường', 'success');
+  } catch (e) { showAlert('fieldsAlert', e.message); }
+});
 
-el('btnFieldsDefault').addEventListener('click', () => {
-  if (extraFields.length && !confirm('Bỏ toàn bộ trường bổ sung, quay về các trường mặc định?')) return;
-  saveFields([]);
+el('btnFieldsDefault').addEventListener('click', async () => {
+  if (!confirm('Đặt lại về cấu hình trường mặc định?')) return;
+  listFields = [
+    { key: 'cccd', label: 'Số CCCD', enabled: true, required: true },
+    { key: 'full_name', label: 'Họ và tên', enabled: true, required: false },
+    { key: 'unit', label: 'Đơn vị', enabled: true, required: false },
+    { key: 'phone', label: 'Số điện thoại', enabled: true, required: true },
+    { key: 'email', label: 'Email', enabled: true, required: false },
+  ];
+  renderFields();
+  el('btnSaveFields').click();
 });
 
 loadUsers().catch((e) => showAlert('alert', e.message));

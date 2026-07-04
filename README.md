@@ -4,9 +4,13 @@
 
 **TBit SmartID** là ứng dụng web điểm danh cho các sự kiện đông người, phát triển bởi [TBit](https://tbit.vn):
 
+- Trang giới thiệu giải pháp (landing) cho người chưa đăng nhập; đăng nhập qua modal, kèm thông tin liên hệ tác giả.
 - Hai loại phiên: **theo danh sách đã có** (đối chiếu danh sách Excel) và **không theo danh sách** (ghi danh tự do — người tham dự quét QR và tự điền thông tin theo các trường do người quản lý cấu hình, có đánh dấu trường bắt buộc).
-- Chuẩn bị danh sách đại biểu bằng **template Excel** (STT, CCCD, Họ và tên, Đơn vị, Số điện thoại, Email). Admin có thể **cấu hình trường bổ sung** (VD: Chức vụ, Mã cán bộ) — trường bổ sung tự có trong template, bảng xem trước và file kết quả.
-- Người tham dự **quét QR Code** bằng camera điện thoại, nhập **CCCD + số điện thoại** (hoặc điền form ghi danh) — không cần cài app.
+- Phiên theo danh sách: chọn **trường bắt buộc để điểm danh** (có thể chỉ cần Số điện thoại — Họ và tên không bắt buộc) và có thể bật thêm **ghi danh tự do** cho người ngoài danh sách (bật/tắt cả khi tạo lẫn khi đang điểm danh).
+- Chuẩn bị danh sách bằng **template Excel**; admin cấu hình **trường nào có trong mẫu** (mặc định) và **trường nào bắt buộc nhập** (mọi trường đều tuỳ chọn, chỉ cần ≥1 định danh CCCD/SĐT), thêm được trường riêng (VD: Chức vụ, Mã cán bộ).
+- **Giao diện sáng/tối**: nút chuyển chế độ trên thanh điều hướng, tự theo hệ điều hành và ghi nhớ lựa chọn.
+- Người tham dự **quét QR Code** bằng camera điện thoại, nhập thông tin theo cấu hình (hoặc điền form ghi danh) — không cần cài app.
+- Sau khi kết thúc có thể **mở lại phiên** để điểm danh tiếp và đặt lại giờ tự kết thúc.
 - **Chống gian lận**: QR động tự đổi mỗi 10 giây (ảnh chụp gửi người vắng hết hạn ngay), ràng buộc thiết bị (một máy điểm danh cho nhiều người sẽ bị gắn cờ ⚠ chờ BTC duyệt), giới hạn tần suất chống dò CCCD.
 - Kết thúc điểm danh xem ngay **thống kê tỉ lệ tham gia**, danh sách có mặt/vắng mặt, hỗ trợ **điểm danh bổ sung** và tích tay.
 - Hẹn **giờ tự kết thúc** khi tạo phiên — hết giờ hệ thống tự đóng điểm danh và **gửi email tổng hợp** (kèm Excel) cho người tạo.

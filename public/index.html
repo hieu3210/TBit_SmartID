@@ -3,47 +3,110 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TBit SmartID — Điểm danh sự kiện</title>
+<title>TBit SmartID — Điểm danh sự kiện thông minh bằng QR</title>
 <link rel="stylesheet" href="/css/style.css">
+<script>(function(){try{var t=localStorage.getItem("tbit-theme");if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
 </head>
 <body>
 
 <div class="topbar">
   <a class="brand" href="/">📋 TBit SmartID</a>
-  <div class="actions hidden" id="topbarActions">
+  <div class="actions" id="topbarActions">
     <a href="/users.html" id="linkUsers" class="hidden">Quản trị</a>
-    <span id="whoami"></span>
-    <button class="link" id="btnLogout">Đăng xuất</button>
+    <span id="whoami" class="hidden"></span>
+    <button class="link hidden" id="btnLogout">Đăng xuất</button>
+    <button class="btn small hidden" id="btnOpenLogin">Đăng nhập</button>
+  </div>
+</div>
+
+<!-- ============ TRANG GIỚI THIỆU (khi chưa đăng nhập) ============ -->
+<div id="landingView" class="hidden">
+  <div class="landing">
+    <section class="hero">
+      <div>
+        <span class="hero-eyebrow">Giải pháp điểm danh sự kiện</span>
+        <h1>Điểm danh sự kiện <span class="accent">thông minh</span> bằng mã QR động</h1>
+        <p class="lead">TBit SmartID giúp ban tổ chức điểm danh nhanh, chính xác và chống gian lận cho hội nghị, sự kiện đông người — người tham dự chỉ cần quét QR bằng điện thoại, không cần cài ứng dụng.</p>
+        <div class="hero-cta">
+          <button class="btn big" id="btnHeroLogin">Đăng nhập hệ thống</button>
+          <button class="btn secondary big" data-modal="guideModal" type="button">Xem hướng dẫn</button>
+        </div>
+        <p class="hero-note">Chưa có tài khoản? <a href="#contact">Liên hệ tác giả</a> để được cấp quyền sử dụng giải pháp.</p>
+      </div>
+      <svg class="hero-illus" viewBox="0 0 460 380" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Minh hoạ điểm danh QR">
+        <defs>
+          <linearGradient id="hg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#eff6ff"/><stop offset="1" stop-color="#dbeafe"/>
+          </linearGradient>
+        </defs>
+        <rect x="20" y="30" width="420" height="320" rx="24" fill="url(#hg)"/>
+        <!-- Bảng QR lớn -->
+        <rect x="60" y="70" width="180" height="180" rx="16" fill="#fff" stroke="#c7d7f5" stroke-width="2"/>
+        <g fill="#1a56db">
+          <rect x="80" y="90" width="40" height="40" rx="4"/><rect x="180" y="90" width="40" height="40" rx="4"/>
+          <rect x="80" y="190" width="40" height="40" rx="4"/>
+          <rect x="90" y="100" width="20" height="20" fill="#fff"/><rect x="190" y="100" width="20" height="20" fill="#fff"/>
+          <rect x="90" y="200" width="20" height="20" fill="#fff"/>
+          <rect x="140" y="95" width="12" height="12"/><rect x="160" y="115" width="12" height="12"/>
+          <rect x="140" y="135" width="12" height="12"/><rect x="185" y="150" width="12" height="12"/>
+          <rect x="205" y="150" width="12" height="12"/><rect x="140" y="185" width="12" height="12"/>
+          <rect x="160" y="205" width="12" height="12"/><rect x="185" y="190" width="12" height="12"/>
+          <rect x="205" y="210" width="12" height="12"/><rect x="185" y="230" width="12" height="12"/>
+        </g>
+        <!-- Điện thoại quét -->
+        <g transform="rotate(-8 330 210)">
+          <rect x="280" y="120" width="120" height="200" rx="20" fill="#111827"/>
+          <rect x="290" y="140" width="100" height="160" rx="8" fill="#f8fafc"/>
+          <rect x="325" y="128" width="30" height="6" rx="3" fill="#374151"/>
+          <rect x="305" y="158" width="70" height="70" rx="8" fill="#eff6ff" stroke="#1a56db" stroke-width="2"/>
+          <path d="M318 193 l12 12 l22 -26" stroke="#057a55" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="305" y="244" width="70" height="10" rx="5" fill="#e5e7eb"/>
+          <rect x="305" y="262" width="48" height="10" rx="5" fill="#e5e7eb"/>
+        </g>
+        <!-- Huy hiệu check -->
+        <circle cx="250" cy="300" r="30" fill="#057a55"/>
+        <path d="M236 300 l10 10 l20 -22" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Vì sao chọn TBit SmartID?</h2>
+      <p class="section-sub">Đơn giản cho người tham dự, mạnh mẽ cho ban tổ chức.</p>
+      <div class="cards-grid">
+        <div class="info-card"><span class="ic">📱</span><h3>Không cần cài app</h3><p>Người tham dự quét QR bằng camera điện thoại và xác nhận trong vài giây.</p></div>
+        <div class="info-card"><span class="ic">🔒</span><h3>Chống điểm danh hộ</h3><p>Mã QR tự đổi liên tục, ràng buộc thiết bị và giới hạn tần suất chống gian lận.</p></div>
+        <div class="info-card"><span class="ic">📝</span><h3>Hai hình thức</h3><p>Điểm danh theo danh sách có sẵn hoặc ghi danh tự do cho sự kiện mở.</p></div>
+        <div class="info-card"><span class="ic">📊</span><h3>Thống kê tức thì</h3><p>Tỉ lệ tham gia, danh sách có mặt/vắng mặt và xuất Excel ngay khi kết thúc.</p></div>
+        <div class="info-card"><span class="ic">⏰</span><h3>Tự kết thúc &amp; email</h3><p>Hẹn giờ đóng điểm danh; hệ thống tự tổng hợp và gửi email kết quả cho bạn.</p></div>
+        <div class="info-card"><span class="ic">🗂️</span><h3>Lưu &amp; dùng lại</h3><p>Lưu danh sách đại biểu để tái sử dụng; thêm/sửa thành viên mọi lúc.</p></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Chỉ 3 bước</h2>
+      <p class="section-sub">Từ chuẩn bị đến báo cáo, tất cả trong một hệ thống.</p>
+      <div class="steps">
+        <div class="step-card"><div class="n">1</div><h3>Chuẩn bị</h3><p>Tạo phiên, tải danh sách từ Excel hoặc mở ghi danh tự do. Cấu hình trường thông tin theo nhu cầu.</p></div>
+        <div class="step-card"><div class="n">2</div><h3>Điểm danh</h3><p>Chiếu mã QR lên màn hình; người tham dự quét và xác nhận. Bộ đếm cập nhật trực tiếp.</p></div>
+        <div class="step-card"><div class="n">3</div><h3>Tổng hợp</h3><p>Kết thúc phiên để xem thống kê, xuất Excel và nhận email báo cáo tự động.</p></div>
+      </div>
+    </section>
+
+    <section class="section" id="contact">
+      <div class="contact-banner">
+        <h2>Nhận tài khoản sử dụng giải pháp</h2>
+        <p>Liên hệ tác giả <b>Nguyễn Duy Hiếu</b> để được cấp tài khoản và hỗ trợ triển khai.</p>
+        <div class="contact-rows">
+          <a class="contact-pill" href="tel:0972782203">📞 Điện thoại / Zalo: 0972782203</a>
+          <a class="contact-pill" href="mailto:hieund@utb.edu.vn">✉️ hieund@utb.edu.vn</a>
+          <a class="contact-pill" href="mailto:hieu3210@gmail.com">✉️ hieu3210@gmail.com</a>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
 
 <div class="container">
-
-  <!-- Đăng nhập -->
-  <div id="loginView" class="hidden" style="max-width:400px;margin:48px auto 0;">
-    <div class="card">
-      <h2 style="text-align:center;font-size:22px;">Đăng nhập hệ thống</h2>
-      <p class="muted" style="text-align:center;margin-bottom:18px;">TBit SmartID — Ứng dụng điểm danh sự kiện bằng QR Code</p>
-      <div id="loginAlert" class="alert hidden"></div>
-      <form id="loginForm">
-        <label for="username">Tên đăng nhập</label>
-        <input id="username" autocomplete="username" required>
-        <label for="password">Mật khẩu</label>
-        <input id="password" type="password" autocomplete="current-password" required>
-        <button class="btn full big" type="submit">Đăng nhập</button>
-      </form>
-      <p style="text-align:center;margin-top:12px;">
-        <button class="link-btn" type="button" id="btnForgot">Quên mật khẩu?</button>
-      </p>
-      <form id="forgotForm" class="hidden" style="margin-top:8px;">
-        <label for="forgotUser">Tên đăng nhập hoặc email</label>
-        <div class="row">
-          <input id="forgotUser" style="flex:1;margin-bottom:0;" required>
-          <button class="btn secondary" type="submit">Gửi link đặt lại</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
   <!-- Đổi mật khẩu bắt buộc -->
   <div id="changePassView" class="hidden" style="max-width:400px;margin:48px auto 0;">
@@ -79,7 +142,15 @@
         <span><b>Theo danh sách đã có</b> — upload danh sách Excel, đại biểu quét QR để xác nhận có mặt</span></label>
       <label class="radio"><input type="radio" name="sessType" value="open">
         <span><b>Không theo danh sách (ghi danh tự do)</b> — người tham dự quét QR và tự điền thông tin ghi danh</span></label>
-      <div class="row" style="margin-top:6px;">
+
+      <div id="listConfig" style="background:var(--bg);border-radius:10px;padding:12px 14px;margin:4px 0 12px;">
+        <label style="margin-bottom:6px;">Điểm danh bằng cách nhập <span class="muted">(chọn ≥1 trường định danh)</span></label>
+        <div class="row" id="checkinFieldsBox" style="gap:14px;"></div>
+        <label class="radio" style="margin:10px 0 0;"><input type="checkbox" id="allowOpen">
+          <span><b>Cho phép ghi danh tự do</b> — người không có trong danh sách vẫn quét QR và tự ghi danh</span></label>
+      </div>
+
+      <div class="row" style="margin-top:2px;">
         <div style="flex:1;min-width:200px;">
           <label>Tự kết thúc lúc <span class="muted">(tuỳ chọn)</span></label>
           <input id="newEndsAt" type="datetime-local">
@@ -109,6 +180,40 @@
 
 </div>
 
+<!-- ============ Modal đăng nhập ============ -->
+<div class="modal-overlay hidden" id="loginModal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-hero">
+      <img src="/img/logo.svg" alt="TBit">
+      <div><h2>Đăng nhập hệ thống</h2><p>TBit SmartID — Điểm danh sự kiện</p></div>
+      <button class="modal-close" type="button" data-close aria-label="Đóng">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="loginAlert" class="alert hidden"></div>
+      <form id="loginForm">
+        <label for="username">Tên đăng nhập</label>
+        <input id="username" autocomplete="username" required>
+        <label for="password">Mật khẩu</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+        <button class="btn full big" type="submit">Đăng nhập</button>
+      </form>
+      <p style="text-align:center;margin-top:12px;">
+        <button class="link-btn" type="button" id="btnForgot">Quên mật khẩu?</button>
+      </p>
+      <form id="forgotForm" class="hidden" style="margin-top:8px;">
+        <label for="forgotUser">Tên đăng nhập hoặc email</label>
+        <div class="row">
+          <input id="forgotUser" style="flex:1;margin-bottom:0;" required>
+          <button class="btn secondary" type="submit">Gửi link</button>
+        </div>
+      </form>
+      <p class="muted" style="text-align:center;margin-top:14px;font-size:13px;">
+        Chưa có tài khoản? Liên hệ Zalo <b>0972782203</b> hoặc email <b>hieund@utb.edu.vn</b>
+      </p>
+    </div>
+  </div>
+</div>
+
 <script src="/js/api.js"></script>
 <script src="/js/shell.js"></script>
 <script>
@@ -118,17 +223,36 @@ async function boot() {
   try {
     me = await api('/api/me');
   } catch (e) {
-    show('loginView');
+    showLanding();
     return;
   }
   afterLogin();
 }
 
+function showLanding() {
+  show('landingView');
+  hide('changePassView'); hide('sessionsView');
+  el('btnOpenLogin').classList.remove('hidden');
+  el('linkUsers').classList.add('hidden');
+  el('whoami').classList.add('hidden');
+  el('btnLogout').classList.add('hidden');
+}
+
+function openLogin() { show('loginModal'); setTimeout(() => el('username').focus(), 50); }
+function closeLogin() { hide('loginModal'); }
+
+el('btnOpenLogin').addEventListener('click', openLogin);
+el('btnHeroLogin').addEventListener('click', openLogin);
+el('loginModal').addEventListener('click', (e) => { if (e.target === el('loginModal')) closeLogin(); });
+el('loginModal').querySelector('[data-close]').addEventListener('click', closeLogin);
+
 function afterLogin() {
-  hide('loginView');
-  show('topbarActions');
-  el('whoami').textContent = me.username;
-  if (me.role === 'admin') show('linkUsers');
+  hide('landingView'); closeLogin();
+  el('btnOpenLogin').classList.add('hidden');
+  el('whoami').classList.remove('hidden');
+  el('btnLogout').classList.remove('hidden');
+  el('whoami').textContent = me.full_name || me.username;
+  if (me.role === 'admin') el('linkUsers').classList.remove('hidden');
   if (me.must_change_password) { show('changePassView'); hide('sessionsView'); return; }
   hide('changePassView');
   show('sessionsView');
@@ -174,7 +298,28 @@ el('forgotForm').addEventListener('submit', async (ev) => {
     hide('forgotForm');
   } catch (e) { showAlert('loginAlert', e.message); }
 });
-el('btnNewSession').addEventListener('click', () => { show('newSessionForm'); el('newSessionName').focus(); });
+
+/* Tạo phiên */
+const sessTypeInputs = () => document.querySelectorAll('input[name="sessType"]');
+function onTypeChange() {
+  const type = document.querySelector('input[name="sessType"]:checked').value;
+  el('listConfig').style.display = type === 'list' ? '' : 'none';
+}
+sessTypeInputs().forEach((r) => r.addEventListener('change', onTypeChange));
+
+async function loadCheckinFieldOptions() {
+  try {
+    const cfg = await api('/api/settings/list-fields');
+    el('checkinFieldsBox').innerHTML = cfg.columns.map((c) => {
+      const def = c.key === 'cccd' || c.key === 'phone';
+      return `<label class="radio" style="margin:0;"><input type="checkbox" class="ckField" value="${esc(c.key)}" ${def ? 'checked' : ''}> <span>${esc(c.label)}</span></label>`;
+    }).join('');
+  } catch (e) { el('checkinFieldsBox').innerHTML = '<span class="muted">Không tải được cấu hình trường</span>'; }
+}
+
+el('btnNewSession').addEventListener('click', () => {
+  show('newSessionForm'); onTypeChange(); loadCheckinFieldOptions(); el('newSessionName').focus();
+});
 el('btnCancelCreate').addEventListener('click', () => hide('newSessionForm'));
 
 el('btnCreateSession').addEventListener('click', async () => {
@@ -183,11 +328,15 @@ el('btnCreateSession').addEventListener('click', async () => {
     const type = document.querySelector('input[name="sessType"]:checked').value;
     const mode = el('newQrMode').value;
     const qrSeconds = mode === 'custom' ? el('newQrSeconds').value : mode === '0' ? 0 : null;
-    const s = await api('/api/sessions', { method: 'POST', body: {
-      name: el('newSessionName').value, type,
-      ends_at: el('newEndsAt').value || null,
-      qr_seconds: qrSeconds,
-    } });
+    const body = { name: el('newSessionName').value, type, ends_at: el('newEndsAt').value || null, qr_seconds: qrSeconds };
+    if (type === 'list') {
+      body.checkin_fields = [...document.querySelectorAll('.ckField:checked')].map((c) => c.value);
+      body.allow_open = el('allowOpen').checked;
+      if (!body.checkin_fields.some((k) => k === 'cccd' || k === 'phone')) {
+        return showAlert('listAlert', 'Chọn ít nhất Số CCCD hoặc Số điện thoại làm trường điểm danh');
+      }
+    }
+    const s = await api('/api/sessions', { method: 'POST', body });
     location.href = `/session.html?id=${s.id}`;
   } catch (e) { showAlert('listAlert', e.message); }
 });
@@ -208,7 +357,7 @@ async function loadSessions() {
         </div>
         <div class="spacer"></div>
         <div style="text-align:right;">
-          ${s.type === 'open' ? '<span class="badge supplement">Ghi danh</span> ' : ''}<span class="badge ${s.status}">${STATUS_LABEL[s.status]}</span>
+          ${s.type === 'open' ? '<span class="badge supplement">Ghi danh</span> ' : (s.allow_open ? '<span class="badge supplement">Có ghi danh</span> ' : '')}<span class="badge ${s.status}">${STATUS_LABEL[s.status]}</span>
           <div class="muted mt" style="margin-top:6px;">
             ${s.type === 'open'
               ? (s.stats.total ? `Đã ghi danh <b>${s.stats.present}</b>` : 'Chưa có người ghi danh')
