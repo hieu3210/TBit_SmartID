@@ -1,20 +1,20 @@
 # TBit SmartID — Ứng dụng điểm danh sự kiện bằng QR Code
 
-Ứng dụng web đơn giản giúp điểm danh cho các sự kiện đông người:
+## 1. Giới thiệu
 
-- Chuẩn bị danh sách đại biểu bằng **template Excel** (STT, CCCD, Họ và tên, Đơn vị, Số điện thoại, Email).
-- Người tham dự **quét QR Code** bằng camera điện thoại, nhập **CCCD + số điện thoại** để xác nhận **Có mặt** — không cần cài app.
-- **Chống gian lận**: QR động tự đổi mỗi 30 giây (ảnh chụp gửi người vắng hết hạn ngay), ràng buộc thiết bị (một máy điểm danh cho nhiều người sẽ bị gắn cờ ⚠ chờ BTC duyệt), giới hạn tần suất chống dò CCCD.
+**TBit SmartID** là ứng dụng web điểm danh cho các sự kiện đông người, phát triển bởi [TBit](https://tbit.vn):
+
+- Hai loại phiên: **theo danh sách đã có** (đối chiếu danh sách Excel) và **không theo danh sách** (ghi danh tự do — người tham dự quét QR và tự điền thông tin theo các trường do người quản lý cấu hình, có đánh dấu trường bắt buộc).
+- Chuẩn bị danh sách đại biểu bằng **template Excel** (STT, CCCD, Họ và tên, Đơn vị, Số điện thoại, Email). Admin có thể **cấu hình trường bổ sung** (VD: Chức vụ, Mã cán bộ) — trường bổ sung tự có trong template, bảng xem trước và file kết quả.
+- Người tham dự **quét QR Code** bằng camera điện thoại, nhập **CCCD + số điện thoại** (hoặc điền form ghi danh) — không cần cài app.
+- **Chống gian lận**: QR động tự đổi mỗi 10 giây (ảnh chụp gửi người vắng hết hạn ngay), ràng buộc thiết bị (một máy điểm danh cho nhiều người sẽ bị gắn cờ ⚠ chờ BTC duyệt), giới hạn tần suất chống dò CCCD.
 - Kết thúc điểm danh xem ngay **thống kê tỉ lệ tham gia**, danh sách có mặt/vắng mặt, hỗ trợ **điểm danh bổ sung** và tích tay.
 - Quản lý theo **phiên điểm danh**, dữ liệu lưu trữ lâu dài (PostgreSQL), **xuất Excel** kết quả.
 - **Đăng nhập quản trị**: admin tạo và quản lý người dùng bằng username/password.
 
-> - Kế hoạch phát triển, thiết kế, nghiên cứu chống gian lận: [PLAN.md](PLAN.md)
-> - Hướng dẫn triển khai lên Internet (GitHub → Vercel + Supabase): [DEPLOY.md](DEPLOY.md)
+Hướng dẫn sử dụng chi tiết cho ban tổ chức nằm ngay trong ứng dụng — menu **Hướng dẫn** trên thanh điều hướng. Kế hoạch phát triển, thiết kế, nghiên cứu chống gian lận: [PLAN.md](PLAN.md).
 
----
-
-## 1. Kiến trúc
+### Kiến trúc
 
 ```
 Express (Node.js 20)
@@ -26,20 +26,19 @@ Express (Node.js 20)
 | Thành phần | Công nghệ |
 |---|---|
 | Backend | Node.js 20, Express — chạy được cả server thường lẫn serverless (Vercel) |
-| CSDL | PostgreSQL (`pg`) — Supabase (cloud) hoặc Docker (local) |
+| CSDL | PostgreSQL (`pg`) — Supabase (cloud) hoặc Docker (local/private server) |
 | Excel | SheetJS (`xlsx`) |
-| QR Code | `qrcode` — QR động ký HMAC, đổi mỗi 30 giây |
+| QR Code | `qrcode` — QR động ký HMAC, đổi mỗi 10 giây |
 | Đăng nhập | `cookie-session` (cookie ký, stateless) + `bcryptjs` |
-| Frontend | HTML/CSS/JS thuần, không cần build |
-| Triển khai | Vercel + Supabase (khuyến nghị) hoặc Docker Compose |
+| Frontend | HTML/CSS/JS thuần, không cần bước build |
 
-## 2. Chạy trên localhost bằng Docker
+## 2. Triển khai trên localhost
 
-Yêu cầu: [Docker Desktop](https://www.docker.com/products/docker-desktop/). Compose đã kèm sẵn PostgreSQL.
+Yêu cầu: [Docker Desktop](https://www.docker.com/products/docker-desktop/). Compose đã kèm sẵn PostgreSQL, không cần cài gì thêm.
 
 ```bash
-git clone https://github.com/hieu3210/TBit-SmartID.git
-cd TBit-SmartID
+git clone https://github.com/hieu3210/TBit_SmartID.git
+cd TBit_SmartID
 docker compose up -d --build
 ```
 
@@ -51,99 +50,216 @@ Mở **http://localhost:3000** — đăng nhập tài khoản mặc định:
 Dữ liệu PostgreSQL nằm trong Docker volume `pgdata` — dừng/khởi động lại không mất dữ liệu.
 
 ```bash
-docker compose logs -f app    # xem log
-docker compose down           # dừng (giữ dữ liệu); thêm -v nếu muốn xoá sạch
-docker exec tbit-smartid npm run reset-admin   # quên mật khẩu admin
+docker compose logs -f app                      # xem log
+docker compose down                             # dừng (giữ dữ liệu); thêm -v nếu muốn xoá sạch
+docker exec tbit-smartid npm run reset-admin    # quên mật khẩu admin → đặt lại admin/admin123
 ```
 
-## 3. Triển khai lên Internet
+Muốn chạy Node trực tiếp (không qua Docker) thì cần PostgreSQL riêng và biến `DATABASE_URL`:
 
-Xem hướng dẫn từng bước trong **[DEPLOY.md](DEPLOY.md)**: đưa code lên GitHub, tạo database Supabase, import vào Vercel, cấu hình 2 biến môi trường là chạy — mỗi lần push code tự động deploy bản mới, HTTPS sẵn có nên đại biểu quét QR qua 4G bình thường.
+```bash
+npm install
+DATABASE_URL="postgres://tbit:tbit@localhost:5432/tbit_smartid" npm start
+```
 
-### Cấu hình (biến môi trường)
+> Muốn cho điện thoại trong cùng mạng LAN quét QR khi chạy localhost: đặt thêm `BASE_URL` theo IP máy, VD `BASE_URL="http://192.168.1.10:3000"`.
+
+## 3. Triển khai trên server
+
+### Biến môi trường
 
 | Biến | Mặc định | Ý nghĩa |
 |---|---|---|
 | `DATABASE_URL` | Postgres local trong compose | Chuỗi kết nối PostgreSQL (Supabase dùng **Transaction pooler**, cổng 6543) |
 | `SESSION_SECRET` | tự sinh mỗi lần chạy | **Bắt buộc đặt khi lên production** — ký cookie đăng nhập + mã QR động |
-| `BASE_URL` | tự lấy theo request | Chỉ cần đặt khi chạy LAN (VD `http://192.168.1.10:3000`) |
-| `QR_ROTATE_SECONDS` | `30` | Chu kỳ đổi mã QR động |
-| `PORT` | `3000` | Cổng web (local/Docker) |
+| `BASE_URL` | tự lấy theo request | Chỉ cần đặt khi URL trong QR khác địa chỉ server nhìn thấy (chạy LAN, sau proxy đặc biệt) |
+| `QR_ROTATE_SECONDS` | `10` | Chu kỳ đổi mã QR động |
+| `PORT` | `3000` | Cổng web (không áp dụng cho Vercel) |
+| `PG_POOL_MAX` | `3` | Kích thước pool kết nối — để nhỏ cho hợp serverless + pooler Supabase |
 
-## 4. Hướng dẫn sử dụng
+### 3.1. Vercel + Supabase (khuyến nghị)
 
-### 4.1. Quản trị viên (admin)
-1. Đăng nhập → đổi mật khẩu bắt buộc lần đầu.
-2. Vào **Quản lý người dùng** → tạo tài khoản cho người quản lý sự kiện (họ cũng phải đổi mật khẩu lần đầu).
-3. Admin xem được mọi phiên điểm danh; có thể đặt lại mật khẩu, xoá người dùng.
-
-### 4.2. Người quản lý sự kiện
-
-**Bước 1 — Chuẩn bị danh sách**: bấm **Tải template Excel**, điền danh sách với các cột
-`STT | CCCD | Họ và tên | Đơn vị | Số điện thoại | Email`.
-Cột CCCD và SĐT để dạng **Text** (template đã định dạng dòng mẫu) để không mất số 0 đầu.
-
-**Bước 2 — Tạo phiên & upload**: bấm **＋ Tạo phiên mới** → kéo-thả file Excel.
-Hệ thống kiểm tra CCCD đủ 12 số, SĐT hợp lệ, không trùng — dòng lỗi được liệt kê rõ theo số dòng, các dòng hợp lệ vẫn được nhập. Upload lại file sẽ thay thế toàn bộ danh sách cũ.
-
-**Bước 3 — Bắt đầu điểm danh**: bấm **▶ Bắt đầu điểm danh** → hiện **QR cỡ lớn** (chiếu lên màn chiếu). QR tự đổi mỗi 30 giây để chống điểm danh hộ từ xa; bộ đếm "Có mặt X/N" tự cập nhật.
-
-**Bước 4 — Đại biểu điểm danh**: quét QR bằng camera → nhập **CCCD + SĐT** → màn hình xanh ✓ hiện tên và đơn vị. Mỗi người chỉ điểm danh được một lần; SĐT dạng `+84` hay `0` đều được nhận.
-
-> Nếu một thiết bị điểm danh cho người thứ 2 trở đi, lượt đó bị gắn cờ ⚠ và hiện trong khu **"Cần xác nhận"** trên màn hình quản lý — BTC bấm **Duyệt** (hợp lệ, VD vợ chồng chung máy) hoặc **Từ chối** (trả về Vắng).
-
-**Bước 5 — Kết thúc & thống kê**: bấm **⏹ Kết thúc điểm danh** → vòng tròn tỉ lệ %, số **có mặt/tổng số**, hai nút **Danh sách có mặt / vắng mặt** (kèm tìm kiếm). Nút **↻ Thống kê** tính lại số liệu mới nhất.
-
-**Bước 6 — Điểm danh bổ sung**: bấm **＋ Điểm danh bổ sung** → QR mở lại cho người đến muộn; BTC cũng có thể **tích tay** trực tiếp trong danh sách (tìm theo tên/CCCD/đơn vị).
-
-**Bước 7 — Xuất kết quả**: bấm **⬇ Xuất Excel** → file gồm sheet `DanhSach` (thêm cột *Trạng thái*, *Thời gian điểm danh*, *Hình thức*: QR/BTC xác nhận/Bổ sung) và sheet `ThongKe`. Dữ liệu phiên lưu vĩnh viễn, xuất lại bất cứ lúc nào.
-
-## 5. Câu hỏi thường gặp
-
-**Đại biểu báo "Mã QR đã hết hạn"?**
-Họ đang mở link/ảnh QR cũ (quá ~1 phút). Yêu cầu quét lại mã đang hiển thị trên màn chiếu — đây chính là cơ chế chống điểm danh hộ từ xa.
-
-**Đại biểu báo "Không có trong danh sách"?**
-CCCD nhập không khớp file đã upload — kiểm tra thiếu người, sai số, hoặc mất số 0 đầu do định dạng ô Excel.
-
-**Đại biểu báo "Số điện thoại không khớp"?**
-SĐT trong danh sách khác số đại biểu nhập (`+84`/`0` đã được tự quy đổi). Dùng chức năng tích tay để xác nhận trực tiếp.
-
-**Nhiều người quét cùng lúc có nghẽn không?**
-Mỗi lượt điểm danh là vài truy vấn nhẹ trên PostgreSQL — vài trăm lượt trong vài phút không thành vấn đề; trên Vercel còn tự scale theo lượng truy cập.
-
-**Quên mật khẩu admin?**
-Xem mục Vận hành trong [DEPLOY.md](DEPLOY.md) — lệnh `npm run reset-admin` đặt lại về `admin/admin123`.
-
-## 6. Cấu trúc mã nguồn
+Cả hai đều có gói miễn phí; mỗi lần push code lên GitHub là tự động deploy, HTTPS sẵn có nên đại biểu quét QR qua 4G bình thường.
 
 ```
-TBit-SmartID/
+┌──────────┐  push   ┌────────┐  auto-deploy  ┌─────────────────┐
+│ Máy bạn  │ ──────► │ GitHub │ ────────────► │ Vercel          │
+└──────────┘         └────────┘               │ (Express        │
+                                              │  serverless)    │
+                                              └───────┬─────────┘
+                                                      │ DATABASE_URL (SSL)
+                                              ┌───────▼─────────┐
+                                              │ Supabase        │
+                                              │ PostgreSQL      │
+                                              └─────────────────┘
+```
+
+**Bước 1 — Tạo database trên Supabase**
+
+1. Đăng nhập https://supabase.com/dashboard → **New project** (hoặc dùng project có sẵn):
+   - Chọn region **Northeast Asia (Tokyo)** hoặc **Southeast Asia (Singapore)** cho gần Việt Nam.
+   - Đặt **Database Password** mạnh và **lưu lại**.
+2. Lấy chuỗi kết nối: **Project Settings → Database** (hoặc nút **Connect**) → **Connection string**:
+   - Chọn tab **Transaction pooler** (cổng **6543**) — **bắt buộc cho Vercel** (Direct connection cổng 5432 chỉ có IPv6, Vercel không kết nối được).
+   - Chuỗi có dạng `postgres://postgres.<project-ref>:<MẬT-KHẨU-DB>@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres` — thay `<MẬT-KHẨU-DB>` bằng mật khẩu đã đặt.
+3. **Không cần tạo bảng thủ công** — ứng dụng tự tạo schema và tài khoản `admin/admin123` trong lần chạy đầu.
+
+**Bước 2 — Đưa code lên GitHub**: tạo repo (VD `TBit_SmartID`), `git remote add origin ...`, commit và push nhánh `main`.
+
+**Bước 3 — Deploy lên Vercel**
+
+1. Đăng nhập https://vercel.com (**Continue with GitHub**) → **Add New… → Project** → **Import** repo.
+2. **Framework Preset** để nguyên **Other** (Vercel tự nhận `vercel.json` và thư mục `api/`). Không cần Build Command.
+3. Thêm **Environment Variables** (áp dụng cho Production, Preview, Development):
+
+   | Tên | Giá trị |
+   |---|---|
+   | `DATABASE_URL` | Chuỗi kết nối **Transaction pooler** ở Bước 1 |
+   | `SESSION_SECRET` | Chuỗi ngẫu nhiên ≥ 32 ký tự — tạo bằng `openssl rand -hex 32` |
+
+   > Không đặt `SESSION_SECRET` thì mỗi lần serverless cold start, toàn bộ người dùng bị đăng xuất và QR đang chiếu bị vô hiệu.
+
+4. Bấm **Deploy**, chờ ~1 phút → Vercel cấp URL dạng `https://tbit-smartid.vercel.app`. Đăng nhập `admin/admin123`, đổi mật khẩu, tạo phiên thử và quét QR bằng điện thoại để kiểm tra.
+
+Từ đây mỗi lần push lên `main` là Vercel tự deploy; push nhánh khác tạo Preview deployment riêng.
+
+**Tên miền riêng (tuỳ chọn)**: Vercel → Project → **Settings → Domains** → thêm domain (VD `diemdanh.tbit.vn`) → trỏ CNAME theo hướng dẫn. HTTPS tự động, không cần đặt `BASE_URL`.
+
+**Vận hành**
+
+- *Quên mật khẩu admin*: `DATABASE_URL="<chuỗi-kết-nối>" npm run reset-admin` (chạy từ máy bạn, trỏ vào DB production) — đặt lại về `admin/admin123`.
+- *Sao lưu*: Supabase gói free tự backup hằng ngày (giữ 7 ngày). Tự lưu thêm: `pg_dump "<chuỗi-kết-nối-direct-5432>" > backup.sql`, hoặc xuất Excel từng phiên ngay trong ứng dụng.
+- *Supabase free tự tạm dừng sau 1 tuần không dùng*: vào dashboard bấm **Restore project** (~2 phút). Trước sự kiện quan trọng hãy kiểm tra trước, hoặc nâng gói Pro.
+
+**Xử lý sự cố thường gặp**
+
+| Hiện tượng | Nguyên nhân & cách xử lý |
+|---|---|
+| Deploy xong, mở trang báo lỗi 500 | Thiếu/sai `DATABASE_URL`. Xem Vercel → Deployments → **Runtime Logs**; kiểm tra dùng chuỗi **pooler cổng 6543**, đúng mật khẩu |
+| `ENETUNREACH` / timeout kết nối DB | Đang dùng Direct connection (5432, IPv6) — đổi sang **Transaction pooler 6543** |
+| `password authentication failed` | Sai mật khẩu DB — reset trong Supabase, cập nhật `DATABASE_URL` trên Vercel rồi **Redeploy** |
+| Đăng nhập xong lại bị văng ra | Chưa đặt `SESSION_SECRET` (cookie vô hiệu sau mỗi cold start) |
+| Đại biểu báo "Mã QR đã hết hạn" liên tục | Họ mở ảnh/link QR cũ (đây chính là cơ chế chống điểm danh hộ) — quét lại mã trên màn chiếu. Nếu ai quét cũng lỗi: server lệch giờ hoặc thiếu `SESSION_SECRET` |
+| Đại biểu báo "Không có trong danh sách" | CCCD không khớp file đã upload — kiểm tra sai số hoặc mất số 0 đầu do định dạng ô Excel |
+
+### 3.2. Private Server (VPS / máy chủ nội bộ)
+
+Phù hợp khi đơn vị muốn giữ toàn bộ dữ liệu trên hạ tầng của mình. Yêu cầu: máy chủ Linux có Docker + Docker Compose.
+
+**Cách 1 — Docker Compose (khuyến nghị)**
+
+```bash
+git clone https://github.com/hieu3210/TBit_SmartID.git
+cd TBit_SmartID
+```
+
+Sửa `docker-compose.yml` trước khi chạy:
+
+- `SESSION_SECRET`: thay bằng chuỗi ngẫu nhiên riêng (`openssl rand -hex 32`).
+- Nên đổi `POSTGRES_PASSWORD` (và cập nhật tương ứng trong `DATABASE_URL`).
+
+```bash
+docker compose up -d --build
+```
+
+Ứng dụng chạy tại cổng 3000. Để có **HTTPS + tên miền** (cần thiết để đại biểu quét QR qua 4G), đặt một reverse proxy phía trước, VD Caddy:
+
+```
+# Caddyfile — Caddy tự xin và gia hạn chứng chỉ Let's Encrypt
+diemdanh.example.vn {
+    reverse_proxy localhost:3000
+}
+```
+
+(Nginx + certbot tương đương.) Ứng dụng đã `trust proxy` nên tự nhận đúng domain từ request — không cần đặt `BASE_URL`.
+
+Cập nhật phiên bản mới:
+
+```bash
+git pull
+docker compose up -d --build     # dữ liệu trong volume pgdata được giữ nguyên
+```
+
+Sao lưu dữ liệu:
+
+```bash
+docker exec tbit-smartid-db pg_dump -U tbit tbit_smartid > backup_$(date +%Y%m%d).sql
+```
+
+**Cách 2 — Node.js trực tiếp**: cài Node.js 20 + PostgreSQL, rồi:
+
+```bash
+npm install --production
+DATABASE_URL="postgres://user:pass@localhost:5432/tbit_smartid" \
+SESSION_SECRET="<chuỗi-ngẫu-nhiên>" \
+npm start
+```
+
+Chạy nền bằng `pm2 start server/app.js --name tbit-smartid` hoặc một service systemd; reverse proxy HTTPS như trên.
+
+**Chạy trong mạng LAN không có tên miền** (hội trường không có Internet): đặt `BASE_URL` theo IP máy chủ (VD `http://192.168.1.10:3000`) để mã QR trỏ đúng địa chỉ điện thoại truy cập được; điện thoại đại biểu phải vào cùng Wi-Fi.
+
+## 4. Cấu trúc mã nguồn
+
+```
+TBit_SmartID/
 ├── api/index.js             # Entry point serverless cho Vercel
 ├── vercel.json              # Định tuyến mọi request vào Express
 ├── server/
 │   ├── app.js               # Express, cookie-session, khởi tạo DB; export app
-│   ├── db.js                # Pool PostgreSQL, schema tự tạo, seed admin, giờ VN
+│   ├── db.js                # Pool PostgreSQL, schema tự tạo, seed admin, bảng settings, giờ VN
 │   ├── middleware.js        # requireAuth/requireAdmin, quyền sở hữu phiên, rate-limit
 │   ├── reset-admin.js       # Đặt lại mật khẩu admin
 │   ├── lib/
 │   │   ├── secrets.js       # Dẫn xuất khoá ký cookie + QR từ SESSION_SECRET
-│   │   ├── excel.js         # Template, parse upload, xuất kết quả
-│   │   ├── qrtoken.js       # Mã QR động HMAC theo cửa sổ 30s
+│   │   ├── excel.js         # Template, parse upload, xuất kết quả (kèm trường bổ sung)
+│   │   ├── fields.js        # Đọc/ghi/kiểm tra cấu hình trường Excel bổ sung
+│   │   ├── qrtoken.js       # Mã QR động HMAC theo cửa sổ 10s
 │   │   └── normalize.js     # Chuẩn hoá CCCD/SĐT
 │   └── routes/
 │       ├── auth.js          # Đăng nhập, đổi mật khẩu
 │       ├── users.js         # CRUD người dùng (admin)
+│       ├── settings.js      # Cấu hình trường Excel (GET mọi người dùng, PUT admin)
 │       ├── sessions.js      # Phiên điểm danh, upload, QR, thống kê, xuất Excel
 │       └── checkin.js       # API điểm danh công khai (chống gian lận Lớp 1)
-├── public/                  # Giao diện: index / session / checkin / users
+├── public/                  # Giao diện tĩnh, không cần build
+│   ├── index.html           # Đăng nhập + danh sách phiên
+│   ├── session.html         # Chi tiết phiên: upload, QR, tích tay, thống kê
+│   ├── checkin.html         # Trang điểm danh của đại biểu (mở từ QR)
+│   ├── users.html           # Quản lý người dùng + cấu hình trường Excel (admin)
+│   ├── css/style.css
+│   └── js/
+│       ├── api.js           # Hàm gọi API + tiện ích chung
+│       └── shell.js         # Footer, menu Giới thiệu/Hướng dẫn + modal (chèn vào mọi trang)
 ├── Dockerfile
-├── docker-compose.yml       # app + postgres cho localhost
+├── docker-compose.yml       # app + postgres cho localhost / private server
 ├── PLAN.md                  # Kế hoạch, thiết kế, checklist, nâng cấp
-├── DEPLOY.md                # Hướng dẫn triển khai GitHub → Vercel + Supabase
 └── README.md
 ```
 
-## 7. Giấy phép
+**Luồng dữ liệu chính**: `sessions` (phiên, token QR) → `attendees` (danh sách + trạng thái điểm danh, trường bổ sung trong cột JSONB `extra`) → bảng `settings` lưu cấu hình toàn hệ thống (key/value).
 
-Xem [LICENSE](LICENSE).
+## 5. Hướng dẫn tiếp tục phát triển, phân phối mã nguồn
+
+### Phát triển
+
+- **Không có bước build**: frontend là HTML/CSS/JS thuần trong `public/`, sửa xong tải lại trang là thấy. Backend chạy `docker compose up -d --build` hoặc `npm start` với `DATABASE_URL` trỏ vào Postgres bất kỳ.
+- **Schema tự migrate**: mọi thay đổi cấu trúc DB viết dạng `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` trong `SCHEMA` của [server/db.js](server/db.js) — chạy tự động ở lần khởi động đầu của mỗi instance, không cần công cụ migration.
+- **Thêm API mới**: tạo router trong `server/routes/`, mount trong [server/app.js](server/app.js); dùng `requireAuth`/`requireAdmin`/`loadOwnedSession` từ [server/middleware.js](server/middleware.js) để kiểm soát quyền.
+- **Thêm trang mới**: đặt file HTML trong `public/`, nhớ gắn `<script src="/js/api.js">` và `<script src="/js/shell.js">` để có sẵn hàm gọi API, footer và menu chung.
+- **Quy ước**: chú thích trong code viết bằng tiếng Việt; escape mọi dữ liệu người dùng khi render bằng hàm `esc()`; thời gian hiển thị theo giờ Việt Nam qua `nowVN()`.
+- Ý tưởng nâng cấp, thiết kế chống gian lận các lớp tiếp theo: xem [PLAN.md](PLAN.md).
+
+### Phân phối mã nguồn
+
+Dự án phát hành theo giấy phép **GNU GPL v3.0** — xem [LICENSE](LICENSE). Tóm tắt:
+
+- Được tự do **sử dụng, sao chép, sửa đổi, phân phối**, kể cả cho mục đích thương mại.
+- Khi phân phối bản gốc hoặc bản sửa đổi, phải **giữ nguyên giấy phép GPL-3.0** và **công khai mã nguồn** kèm theo.
+- Không kèm bất kỳ bảo hành nào.
+
+Ứng dụng được cung cấp **miễn phí** cho các đơn vị, tổ chức có nhu cầu điểm danh sự kiện.
+
+**Tác giả**: Nguyễn Duy Hiếu — liên hệ tạo tài khoản hoặc trao đổi phát triển:
+- Email: [hieund@utb.edu.vn](mailto:hieund@utb.edu.vn) / [hieu3210@gmail.com](mailto:hieu3210@gmail.com)
+- Đóng góp code: mở Issue / Pull Request trên [GitHub](https://github.com/hieu3210/TBit_SmartID).

@@ -65,7 +65,31 @@ CREATE TABLE IF NOT EXISTS attendees (
 );
 
 CREATE INDEX IF NOT EXISTS idx_attendees_session ON attendees(session_id);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+ALTER TABLE attendees ADD COLUMN IF NOT EXISTS extra JSONB;
+
+-- Phiên ghi danh tự do (không theo danh sách): type = 'open', fields = cấu hình form ghi danh
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'list';
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS fields JSONB;
+ALTER TABLE attendees ALTER COLUMN cccd DROP NOT NULL;
 `;
+
+async function getSetting(key) {
+  const { rows } = await query('SELECT value FROM settings WHERE key = $1', [key]);
+  return rows.length ? rows[0].value : null;
+}
+
+async function setSetting(key, value) {
+  await query(
+    'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+    [key, value]
+  );
+}
 
 async function doInit() {
   await query(SCHEMA);
@@ -86,4 +110,4 @@ function init() {
   return initPromise;
 }
 
-module.exports = { query, pool, init, nowVN };
+module.exports = { query, pool, init, nowVN, getSetting, setSetting };

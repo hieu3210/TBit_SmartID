@@ -41,6 +41,27 @@
   </div>
 
   <div class="card">
+    <h2>Trường thông tin file Excel</h2>
+    <p class="muted" style="margin-bottom:10px;">
+      Các trường <b>mặc định</b> luôn có trong template và file xuất kết quả.
+      Bạn có thể bổ sung trường riêng (VD: Chức vụ, Mã cán bộ…) — trường bổ sung sẽ xuất hiện
+      trong template Excel, bảng xem trước và file kết quả.
+    </p>
+    <div id="fieldsAlert" class="alert hidden"></div>
+    <label>Trường mặc định</label>
+    <div class="chip-list" id="coreFields"></div>
+    <label style="margin-top:12px;">Trường bổ sung</label>
+    <div class="chip-list" id="extraFields"><span class="muted">Chưa có trường bổ sung</span></div>
+    <form id="fieldForm" class="row mt" style="align-items:flex-end;">
+      <div style="flex:1;min-width:180px;">
+        <input id="newField" placeholder="VD: Chức vụ" maxlength="40" style="margin-bottom:0;">
+      </div>
+      <button class="btn" type="submit">＋ Thêm trường</button>
+      <button class="btn secondary" type="button" id="btnFieldsDefault">↺ Về mặc định</button>
+    </form>
+  </div>
+
+  <div class="card">
     <h2>Danh sách người dùng</h2>
     <div class="table-wrap"><table>
       <thead><tr><th>Tên đăng nhập</th><th>Vai trò</th><th>Ngày tạo</th><th></th></tr></thead>
@@ -50,6 +71,7 @@
 </div>
 
 <script src="/js/api.js"></script>
+<script src="/js/shell.js"></script>
 <script>
 async function loadUsers() {
   const users = await api('/api/users');
@@ -95,7 +117,48 @@ async function removeUser(id, username) {
   catch (e) { showAlert('alert', e.message); }
 }
 
+/* ---------- Cấu hình trường Excel ---------- */
+let extraFields = [];
+
+function renderFields(cfg) {
+  extraFields = cfg.extra;
+  el('coreFields').innerHTML = cfg.core.map((f) => `<span class="chip core">${esc(f)}</span>`).join('');
+  el('extraFields').innerHTML = extraFields.length
+    ? extraFields.map((f, i) => `<span class="chip">${esc(f)} <button type="button" class="chip-x" onclick="removeField(${i})" aria-label="Xoá trường">×</button></span>`).join('')
+    : '<span class="muted">Chưa có trường bổ sung</span>';
+}
+
+async function loadFields() {
+  renderFields(await api('/api/settings/excel-fields'));
+}
+
+async function saveFields(extra) {
+  clearAlert('fieldsAlert');
+  try {
+    renderFields(await api('/api/settings/excel-fields', { method: 'PUT', body: { extra } }));
+    showAlert('fieldsAlert', 'Đã lưu cấu hình trường Excel', 'success');
+  } catch (e) { showAlert('fieldsAlert', e.message); }
+}
+
+el('fieldForm').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const label = el('newField').value.trim();
+  if (!label) return;
+  el('newField').value = '';
+  saveFields([...extraFields, label]);
+});
+
+function removeField(i) {
+  saveFields(extraFields.filter((_, j) => j !== i));
+}
+
+el('btnFieldsDefault').addEventListener('click', () => {
+  if (extraFields.length && !confirm('Bỏ toàn bộ trường bổ sung, quay về các trường mặc định?')) return;
+  saveFields([]);
+});
+
 loadUsers().catch((e) => showAlert('alert', e.message));
+loadFields().catch((e) => showAlert('fieldsAlert', e.message));
 </script>
 </body>
 </html>

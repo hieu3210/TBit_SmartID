@@ -18,6 +18,7 @@
     <div>
       <h2 id="sessionName" style="font-size:20px;">…</h2>
       <span class="badge" id="sessionBadge"></span>
+      <span class="badge supplement hidden" id="typeBadge">Ghi danh tự do</span>
     </div>
     <div class="spacer"></div>
     <button class="btn danger small hidden" id="btnDelete">Xoá phiên</button>
@@ -42,10 +43,30 @@
     <div class="card">
       <h2>2. Xem trước danh sách (<span id="previewCount">0</span> người)</h2>
       <div class="table-wrap"><table id="previewTable">
-        <thead><tr><th>STT</th><th>CCCD</th><th>Họ và tên</th><th>Đơn vị</th><th>SĐT</th></tr></thead>
+        <thead></thead>
         <tbody></tbody>
       </table></div>
       <button class="btn big full mt" id="btnOpen">▶ Bắt đầu điểm danh</button>
+    </div>
+  </div>
+
+  <!-- ===== DRAFT (phiên ghi danh): cấu hình form ===== -->
+  <div id="openDraftView" class="hidden">
+    <div class="card">
+      <h2>Thông tin người ghi danh cần điền</h2>
+      <p class="muted" style="margin-bottom:12px;">
+        Người tham dự quét QR và tự điền form theo các trường bên dưới.
+        Chọn trường muốn dùng, đánh dấu <b>Bắt buộc</b> với thông tin không thể thiếu.
+      </p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Trường</th><th style="text-align:center;">Sử dụng</th><th style="text-align:center;">Bắt buộc</th><th></th></tr></thead>
+        <tbody id="fieldRows"></tbody>
+      </table></div>
+      <form id="addFieldForm" class="row mt">
+        <input id="newOpenField" placeholder="Thêm trường khác — VD: Chức vụ" maxlength="40" style="flex:1;min-width:160px;margin-bottom:0;">
+        <button class="btn secondary" type="submit">＋ Thêm trường</button>
+      </form>
+      <button class="btn big full mt" id="btnOpenStart">▶ Bắt đầu ghi danh</button>
     </div>
   </div>
 
@@ -54,9 +75,9 @@
     <div class="card qr-screen">
       <div id="supplementNote" class="alert warn hidden">Đang <b>điểm danh bổ sung</b> — người đến muộn quét mã dưới đây.</div>
       <img id="qrImg" alt="QR điểm danh">
-      <div class="qr-note">Quét mã bằng camera điện thoại → nhập CCCD + SĐT.<br>
+      <div class="qr-note"><span id="qrNoteText">Quét mã bằng camera điện thoại → nhập CCCD + SĐT.</span><br>
         <span class="countdown">Mã tự đổi sau <b id="countdown">–</b> giây (chống điểm danh hộ từ xa)</span></div>
-      <div class="qr-counter"><span id="liveCounter">0</span><small> / <span id="liveTotal">0</span> có mặt</small></div>
+      <div class="qr-counter"><span id="liveCounter">0</span><small id="liveCounterSub"> / <span id="liveTotal">0</span> có mặt</small></div>
       <button class="btn danger big" id="btnClose">⏹ Kết thúc điểm danh</button>
     </div>
     <div class="card hidden" id="flaggedCard">
@@ -65,7 +86,7 @@
       <div class="table-wrap"><table id="flaggedTable"><tbody></tbody></table></div>
     </div>
     <div class="card" id="manualCard">
-      <h2>Tích tay (BTC xác nhận trực tiếp)</h2>
+      <h2 id="manualTitle">Tích tay (BTC xác nhận trực tiếp)</h2>
       <input id="manualSearch" placeholder="Tìm theo tên / CCCD / đơn vị…">
       <div class="table-wrap"><table id="manualTable"><tbody></tbody></table></div>
     </div>
@@ -74,7 +95,7 @@
   <!-- ===== CLOSED: thống kê ===== -->
   <div id="closedView" class="hidden">
     <div class="card">
-      <div class="donut-wrap">
+      <div class="donut-wrap" id="donutWrap">
         <svg class="donut" viewBox="0 0 120 120">
           <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="14"/>
           <circle id="donutArc" cx="60" cy="60" r="50" fill="none" stroke="#057a55" stroke-width="14"
@@ -84,9 +105,9 @@
         </svg>
       </div>
       <div class="stat-row">
-        <div class="stat"><div class="num green" id="stPresent">0</div><div class="lbl">Có mặt</div></div>
-        <div class="stat"><div class="num red" id="stAbsent">0</div><div class="lbl">Vắng mặt</div></div>
-        <div class="stat"><div class="num" id="stTotal">0</div><div class="lbl">Tổng số</div></div>
+        <div class="stat"><div class="num green" id="stPresent">0</div><div class="lbl" id="stPresentLbl">Có mặt</div></div>
+        <div class="stat" id="stAbsentBox"><div class="num red" id="stAbsent">0</div><div class="lbl">Vắng mặt</div></div>
+        <div class="stat" id="stTotalBox"><div class="num" id="stTotal">0</div><div class="lbl">Tổng số</div></div>
       </div>
       <div class="row">
         <button class="btn green" id="btnListPresent">✓ Danh sách có mặt</button>
@@ -115,6 +136,7 @@
 </div>
 
 <script src="/js/api.js"></script>
+<script src="/js/shell.js"></script>
 <script>
 const sessionId = new URLSearchParams(location.search).get('id');
 let sess = null;
@@ -131,14 +153,22 @@ async function load() {
   const badge = el('sessionBadge');
   badge.textContent = STATUS_LABEL[sess.status];
   badge.className = `badge ${sess.status}`;
-  ['draftView', 'openView', 'closedView'].forEach(hide);
+  el('typeBadge').classList.toggle('hidden', sess.type !== 'open');
+  ['draftView', 'openDraftView', 'openView', 'closedView'].forEach(hide);
 
   if (sess.status === 'draft') {
-    show('draftView'); show('btnDelete');
-    renderPreview();
+    show(isOpenType() ? 'openDraftView' : 'draftView'); show('btnDelete');
+    if (isOpenType()) renderFieldEditor(); else renderPreview();
   } else if (sess.status === 'open' || sess.status === 'supplement') {
     show('openView'); hide('btnDelete');
     el('supplementNote').classList.toggle('hidden', sess.status !== 'supplement');
+    if (isOpenType()) {
+      el('qrNoteText').textContent = 'Quét mã bằng camera điện thoại → điền thông tin ghi danh.';
+      el('liveCounterSub').textContent = ' người đã ghi danh';
+      el('manualTitle').textContent = 'Danh sách đã ghi danh';
+      el('manualSearch').placeholder = 'Tìm theo tên / đơn vị…';
+      el('btnClose').textContent = '⏹ Kết thúc ghi danh';
+    }
     startQrPolling();
     renderManualList();
   } else {
@@ -147,6 +177,8 @@ async function load() {
     el('btnExport').href = `/api/sessions/${sessionId}/export`;
   }
 }
+
+function isOpenType() { return sess && sess.type === 'open'; }
 
 function clearTimers() {
   if (pollTimer) clearInterval(pollTimer);
@@ -181,10 +213,18 @@ async function uploadFile(file) {
 }
 
 async function renderPreview() {
-  const rows = await api(`/api/sessions/${sessionId}/attendees`);
+  const [rows, fieldCfg] = await Promise.all([
+    api(`/api/sessions/${sessionId}/attendees`),
+    api('/api/settings/excel-fields'),
+  ]);
+  const extras = fieldCfg.extra;
   el('previewCount').textContent = rows.length;
+  el('previewTable').querySelector('thead').innerHTML =
+    `<tr><th>STT</th><th>CCCD</th><th>Họ và tên</th><th>Đơn vị</th><th>SĐT</th>` +
+    extras.map((f) => `<th>${esc(f)}</th>`).join('') + '</tr>';
   el('previewTable').querySelector('tbody').innerHTML = rows.slice(0, 300).map((a) =>
-    `<tr><td>${a.stt}</td><td>${esc(a.cccd)}</td><td>${esc(a.full_name)}</td><td>${esc(a.unit || '')}</td><td>${esc(a.phone || '')}</td></tr>`).join('');
+    `<tr><td>${a.stt}</td><td>${esc(a.cccd)}</td><td>${esc(a.full_name)}</td><td>${esc(a.unit || '')}</td><td>${esc(a.phone || '')}</td>` +
+    extras.map((f) => `<td>${esc((a.extra || {})[f] || '')}</td>`).join('') + '</tr>').join('');
   el('btnOpen').disabled = rows.length === 0;
 }
 
@@ -192,6 +232,86 @@ el('btnOpen').addEventListener('click', async () => {
   if (!confirm('Bắt đầu điểm danh? Sau khi bắt đầu sẽ không sửa được danh sách.')) return;
   try { await api(`/api/sessions/${sessionId}/open`, { method: 'POST' }); load(); }
   catch (e) { showAlert('alert', e.message); }
+});
+
+/* ---------- DRAFT (phiên ghi danh): cấu hình form ---------- */
+const OPEN_CORE = [
+  { key: 'full_name', label: 'Họ và tên', locked: true },
+  { key: 'phone', label: 'Số điện thoại' },
+  { key: 'cccd', label: 'Số CCCD' },
+  { key: 'unit', label: 'Đơn vị' },
+  { key: 'email', label: 'Email' },
+];
+let fieldState = null; // { core: {key: {enabled, required}}, custom: [{label, required}] }
+
+function initFieldState() {
+  const saved = sess.fields || [];
+  const map = new Map(saved.map((f) => [f.key, f]));
+  fieldState = { core: {}, custom: [] };
+  OPEN_CORE.forEach((f) => {
+    const s = map.get(f.key);
+    fieldState.core[f.key] = f.locked
+      ? { enabled: true, required: true }
+      : { enabled: !!s, required: s ? !!s.required : false };
+  });
+  saved.forEach((f) => {
+    if (!OPEN_CORE.some((c) => c.key === f.key)) fieldState.custom.push({ label: f.label, required: !!f.required });
+  });
+}
+
+function renderFieldEditor() {
+  if (!fieldState) initFieldState();
+  el('fieldRows').innerHTML =
+    OPEN_CORE.map((f) => {
+      const st = fieldState.core[f.key];
+      return `<tr>
+        <td><b>${f.label}</b>${f.locked ? ' <span class="muted">(luôn bắt buộc)</span>' : ''}</td>
+        <td style="text-align:center;"><input type="checkbox" ${st.enabled ? 'checked' : ''} ${f.locked ? 'disabled' : ''}
+             onchange="toggleCore('${f.key}','enabled',this.checked)"></td>
+        <td style="text-align:center;"><input type="checkbox" ${st.required ? 'checked' : ''} ${f.locked || !st.enabled ? 'disabled' : ''}
+             onchange="toggleCore('${f.key}','required',this.checked)"></td>
+        <td></td></tr>`;
+    }).join('') +
+    fieldState.custom.map((f, i) => `<tr>
+        <td><b>${esc(f.label)}</b> <span class="muted">(trường bổ sung)</span></td>
+        <td style="text-align:center;"><input type="checkbox" checked disabled></td>
+        <td style="text-align:center;"><input type="checkbox" ${f.required ? 'checked' : ''} onchange="toggleCustom(${i},this.checked)"></td>
+        <td style="text-align:right;"><button class="btn danger small" onclick="removeCustom(${i})">Xoá</button></td></tr>`).join('');
+}
+
+function toggleCore(key, prop, val) {
+  fieldState.core[key][prop] = val;
+  if (prop === 'enabled' && !val) fieldState.core[key].required = false;
+  renderFieldEditor();
+}
+function toggleCustom(i, val) { fieldState.custom[i].required = val; }
+function removeCustom(i) { fieldState.custom.splice(i, 1); renderFieldEditor(); }
+
+el('addFieldForm').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const label = el('newOpenField').value.trim();
+  if (!label) return;
+  fieldState.custom.push({ label, required: false });
+  el('newOpenField').value = '';
+  renderFieldEditor();
+});
+
+function collectFields() {
+  return [
+    ...OPEN_CORE.filter((f) => fieldState.core[f.key].enabled)
+      .map((f) => ({ key: f.key, required: fieldState.core[f.key].required })),
+    ...fieldState.custom.map((f) => ({ key: f.label, label: f.label, required: f.required })),
+  ];
+}
+
+el('btnOpenStart').addEventListener('click', async () => {
+  if (!confirm('Bắt đầu ghi danh? Sau khi bắt đầu sẽ không sửa được các trường thông tin.')) return;
+  clearAlert('alert');
+  try {
+    await api(`/api/sessions/${sessionId}/fields`, { method: 'PUT', body: { fields: collectFields() } });
+    await api(`/api/sessions/${sessionId}/open`, { method: 'POST' });
+    load();
+  } catch (e) { showAlert('alert', e.message); }
 });
 
 /* ---------- OPEN / SUPPLEMENT ---------- */
@@ -204,6 +324,8 @@ function startQrPolling() {
       el('liveCounter').textContent = q.stats.present;
       el('liveTotal').textContent = q.stats.total;
       renderFlagged();
+      // Phiên ghi danh: cập nhật trực tiếp danh sách đã ghi danh (trừ lúc đang tìm kiếm)
+      if (isOpenType() && !el('manualSearch').value && document.activeElement !== el('manualSearch')) renderManualList();
     } catch (e) { /* phiên có thể vừa bị đóng ở tab khác */ }
   };
   tick();
@@ -242,6 +364,18 @@ el('manualSearch').addEventListener('input', () => {
 async function renderManualList() {
   const q = encodeURIComponent(el('manualSearch').value.trim());
   const rows = await api(`/api/sessions/${sessionId}/attendees?q=${q}`);
+  if (isOpenType()) {
+    // Danh sách người đã ghi danh (mới nhất lên đầu), BTC có thể xoá lượt rác
+    el('manualTable').querySelector('tbody').innerHTML = rows.slice().reverse().slice(0, 200).map((a) => `
+      <tr>
+        <td><b>${esc(a.full_name)}</b><br><span class="muted">${esc([a.unit, a.phone].filter(Boolean).join(' · '))}</span></td>
+        <td class="muted" style="white-space:nowrap;">${esc(a.checked_in_at || '')}</td>
+        <td style="text-align:right;">
+          <button class="btn secondary small" onclick="removeRegistration(${a.id})">Xoá</button>
+        </td>
+      </tr>`).join('');
+    return;
+  }
   el('manualTable').querySelector('tbody').innerHTML = rows.slice(0, 100).map((a) => `
     <tr>
       <td><b>${esc(a.full_name)}</b><br><span class="muted">${esc(a.unit || '')}</span></td>
@@ -252,6 +386,12 @@ async function renderManualList() {
           : `<button class="btn green small" onclick="markAttendee(${a.id},'present')">✓ Có mặt</button>`}
       </td>
     </tr>`).join('');
+}
+
+async function removeRegistration(aid) {
+  if (!confirm('Xoá bản ghi danh này?')) return;
+  try { await api(`/api/sessions/${sessionId}/attendees/${aid}`, { method: 'DELETE' }); renderManualList(); }
+  catch (e) { showAlert('alert', e.message); }
 }
 
 async function markAttendee(aid, status) {
@@ -267,6 +407,15 @@ el('btnClose').addEventListener('click', async () => {
 
 /* ---------- CLOSED ---------- */
 function renderStats(st) {
+  const open = isOpenType();
+  // Phiên ghi danh: không có khái niệm vắng/tỉ lệ — chỉ hiện tổng số đã ghi danh
+  el('donutWrap').classList.toggle('hidden', open);
+  el('stAbsentBox').classList.toggle('hidden', open);
+  el('stTotalBox').classList.toggle('hidden', open);
+  el('stPresentLbl').textContent = open ? 'Người đã ghi danh' : 'Có mặt';
+  el('btnListAbsent').classList.toggle('hidden', open);
+  el('btnListPresent').textContent = open ? '📋 Danh sách ghi danh' : '✓ Danh sách có mặt';
+  el('btnSupplement').textContent = open ? '＋ Mở ghi danh bổ sung' : '＋ Điểm danh bổ sung';
   el('stPresent').textContent = st.present;
   el('stAbsent').textContent = st.absent;
   el('stTotal').textContent = st.total;
@@ -289,7 +438,8 @@ async function openDetail(status) {
   detailStatus = status;
   const q = encodeURIComponent(el('detailSearch').value.trim());
   const rows = await api(`/api/sessions/${sessionId}/attendees?status=${status}&q=${q}`);
-  el('detailTitle').textContent = status === 'present' ? `Danh sách có mặt (${rows.length})` : `Danh sách vắng mặt (${rows.length})`;
+  el('detailTitle').textContent = isOpenType() ? `Danh sách ghi danh (${rows.length})`
+    : status === 'present' ? `Danh sách có mặt (${rows.length})` : `Danh sách vắng mặt (${rows.length})`;
   el('detailBody').innerHTML = rows.map((a) => `
     <tr><td>${a.stt}</td><td><b>${esc(a.full_name)}</b></td><td>${esc(a.unit || '')}</td>
     <td>${esc(a.checked_in_at || '—')}</td><td>${TYPE_LABEL[a.checkin_type] || '—'}</td></tr>`).join('');

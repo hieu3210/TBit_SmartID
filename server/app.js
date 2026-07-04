@@ -29,6 +29,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.use('/api', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/settings', require('./routes/settings'));
 app.use('/api/sessions', require('./routes/sessions'));
 app.use(require('./routes/checkin'));
 

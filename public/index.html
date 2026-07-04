@@ -64,7 +64,12 @@
     <div id="newSessionForm" class="card hidden">
       <label>Tên sự kiện</label>
       <input id="newSessionName" placeholder="VD: Hội nghị tổng kết năm 2026" maxlength="120">
-      <div class="row">
+      <label>Loại phiên</label>
+      <label class="radio"><input type="radio" name="sessType" value="list" checked>
+        <span><b>Theo danh sách đã có</b> — upload danh sách Excel, đại biểu quét QR để xác nhận có mặt</span></label>
+      <label class="radio"><input type="radio" name="sessType" value="open">
+        <span><b>Không theo danh sách (ghi danh tự do)</b> — người tham dự quét QR và tự điền thông tin ghi danh</span></label>
+      <div class="row" style="margin-top:12px;">
         <button class="btn" id="btnCreateSession">Tạo phiên</button>
         <button class="btn secondary" id="btnCancelCreate">Huỷ</button>
       </div>
@@ -76,6 +81,7 @@
 </div>
 
 <script src="/js/api.js"></script>
+<script src="/js/shell.js"></script>
 <script>
 let me = null;
 
@@ -128,7 +134,8 @@ el('btnCancelCreate').addEventListener('click', () => hide('newSessionForm'));
 el('btnCreateSession').addEventListener('click', async () => {
   clearAlert('listAlert');
   try {
-    const s = await api('/api/sessions', { method: 'POST', body: { name: el('newSessionName').value } });
+    const type = document.querySelector('input[name="sessType"]:checked').value;
+    const s = await api('/api/sessions', { method: 'POST', body: { name: el('newSessionName').value, type } });
     location.href = `/session.html?id=${s.id}`;
   } catch (e) { showAlert('listAlert', e.message); }
 });
@@ -149,9 +156,11 @@ async function loadSessions() {
         </div>
         <div class="spacer"></div>
         <div style="text-align:right;">
-          <span class="badge ${s.status}">${STATUS_LABEL[s.status]}</span>
+          ${s.type === 'open' ? '<span class="badge supplement">Ghi danh</span> ' : ''}<span class="badge ${s.status}">${STATUS_LABEL[s.status]}</span>
           <div class="muted mt" style="margin-top:6px;">
-            ${s.stats.total ? `Có mặt <b>${s.stats.present}</b>/${s.stats.total}` : 'Chưa có danh sách'}
+            ${s.type === 'open'
+              ? (s.stats.total ? `Đã ghi danh <b>${s.stats.present}</b>` : 'Chưa có người ghi danh')
+              : (s.stats.total ? `Có mặt <b>${s.stats.present}</b>/${s.stats.total}` : 'Chưa có danh sách')}
           </div>
         </div>
       </div>

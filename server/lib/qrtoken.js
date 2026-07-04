@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { qrSecret } = require('./secrets');
 
-const ROTATE_SECONDS = parseInt(process.env.QR_ROTATE_SECONDS || '30', 10);
+const ROTATE_SECONDS = parseInt(process.env.QR_ROTATE_SECONDS || '10', 10);
 
 function codeFor(token, windowIndex) {
   return crypto.createHmac('sha256', qrSecret)

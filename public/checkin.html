@@ -10,17 +10,13 @@
 
 <div class="checkin-page">
   <div class="event-name" id="eventName">…</div>
-  <div class="event-sub">Nhập thông tin để xác nhận có mặt</div>
+  <div class="event-sub" id="eventSub">Nhập thông tin để xác nhận có mặt</div>
 
-  <!-- Form điểm danh -->
+  <!-- Form điểm danh / ghi danh (các ô nhập được sinh theo loại phiên) -->
   <div class="card" id="formCard">
     <div id="alert" class="alert hidden"></div>
     <form id="form">
-      <label for="cccd">Số CCCD (12 số)</label>
-      <input id="cccd" inputmode="numeric" pattern="[0-9]*" maxlength="12" placeholder="001099012345"
-             autocomplete="off" required>
-      <label for="phone">Số điện thoại</label>
-      <input id="phone" inputmode="tel" maxlength="12" placeholder="0912345678" autocomplete="tel" required>
+      <div id="fieldsBox"></div>
       <button class="btn full big" type="submit" id="btnSubmit">✓ Điểm danh</button>
     </form>
   </div>
@@ -43,19 +39,48 @@
 </div>
 
 <script src="/js/api.js"></script>
+<script src="/js/shell.js"></script>
 <script>
 const token = location.pathname.split('/').pop();
 const code = new URLSearchParams(location.search).get('c') || '';
+let info = null;
+
+// Thuộc tính ô nhập theo loại trường
+const INPUT_ATTRS = {
+  cccd: 'inputmode="numeric" pattern="[0-9]*" maxlength="12" placeholder="001099012345" autocomplete="off"',
+  phone: 'inputmode="tel" maxlength="12" placeholder="0912345678" autocomplete="tel"',
+  email: 'type="email" placeholder="ten@example.com" autocomplete="email"',
+  full_name: 'autocomplete="name" maxlength="120"',
+};
+
+function renderForm() {
+  if (info.type === 'open') {
+    el('eventSub').textContent = 'Điền thông tin để ghi danh tham dự sự kiện';
+    el('btnSubmit').textContent = '✓ Ghi danh';
+    el('fieldsBox').innerHTML = info.fields.map((f, i) => `
+      <label for="f_${i}">${esc(f.label)}${f.required ? ' <span style="color:var(--red);">*</span>' : ' <span class="muted">(không bắt buộc)</span>'}</label>
+      <input id="f_${i}" data-key="${esc(f.key)}" ${INPUT_ATTRS[f.key] || 'maxlength="200"'} ${f.required ? 'required' : ''}>`).join('');
+  } else {
+    el('fieldsBox').innerHTML = `
+      <label for="cccd">Số CCCD (12 số)</label>
+      <input id="cccd" ${INPUT_ATTRS.cccd} required>
+      <label for="phone">Số điện thoại</label>
+      <input id="phone" ${INPUT_ATTRS.phone} required>`;
+  }
+}
 
 async function boot() {
   try {
-    const info = await api(`/api/checkin/${token}/info`);
+    info = await api(`/api/checkin/${token}/info`);
     el('eventName').textContent = info.name;
     if (info.status !== 'open' && info.status !== 'supplement') {
       hide('formCard'); show('closedCard');
+      return;
     }
+    renderForm();
   } catch (e) {
     el('eventName').textContent = 'Không tìm thấy phiên điểm danh';
+    el('eventSub').textContent = '';
     hide('formCard');
   }
 }
@@ -64,12 +89,18 @@ el('form').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   clearAlert('alert');
   const btn = el('btnSubmit');
+  const btnLabel = btn.textContent;
   btn.disabled = true; btn.textContent = 'Đang xử lý…';
   try {
-    const r = await api(`/api/checkin/${token}`, {
-      method: 'POST',
-      body: { cccd: el('cccd').value, phone: el('phone').value, c: code },
-    });
+    let body;
+    if (info.type === 'open') {
+      const values = {};
+      el('fieldsBox').querySelectorAll('input[data-key]').forEach((inp) => { values[inp.dataset.key] = inp.value; });
+      body = { values, c: code };
+    } else {
+      body = { cccd: el('cccd').value, phone: el('phone').value, c: code };
+    }
+    const r = await api(`/api/checkin/${token}`, { method: 'POST', body });
     hide('formCard'); show('successCard');
     el('successName').textContent = r.full_name;
     el('successUnit').textContent = r.unit || '';
@@ -78,7 +109,7 @@ el('form').addEventListener('submit', async (ev) => {
     if (r.flagged) el('successIcon').classList.add('warn'), el('successIcon').textContent = '!';
   } catch (e) {
     showAlert('alert', e.message);
-    btn.disabled = false; btn.textContent = '✓ Điểm danh';
+    btn.disabled = false; btn.textContent = btnLabel;
   }
 });
 
