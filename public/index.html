@@ -11,7 +11,7 @@
 <div class="topbar">
   <a class="brand" href="/">📋 TBit SmartID</a>
   <div class="actions hidden" id="topbarActions">
-    <a href="/users.html" id="linkUsers" class="hidden">Quản lý người dùng</a>
+    <a href="/users.html" id="linkUsers" class="hidden">Quản trị</a>
     <span id="whoami"></span>
     <button class="link" id="btnLogout">Đăng xuất</button>
   </div>
@@ -31,6 +31,16 @@
         <label for="password">Mật khẩu</label>
         <input id="password" type="password" autocomplete="current-password" required>
         <button class="btn full big" type="submit">Đăng nhập</button>
+      </form>
+      <p style="text-align:center;margin-top:12px;">
+        <button class="link-btn" type="button" id="btnForgot">Quên mật khẩu?</button>
+      </p>
+      <form id="forgotForm" class="hidden" style="margin-top:8px;">
+        <label for="forgotUser">Tên đăng nhập hoặc email</label>
+        <div class="row">
+          <input id="forgotUser" style="flex:1;margin-bottom:0;" required>
+          <button class="btn secondary" type="submit">Gửi link đặt lại</button>
+        </div>
       </form>
     </div>
   </div>
@@ -69,7 +79,26 @@
         <span><b>Theo danh sách đã có</b> — upload danh sách Excel, đại biểu quét QR để xác nhận có mặt</span></label>
       <label class="radio"><input type="radio" name="sessType" value="open">
         <span><b>Không theo danh sách (ghi danh tự do)</b> — người tham dự quét QR và tự điền thông tin ghi danh</span></label>
-      <div class="row" style="margin-top:12px;">
+      <div class="row" style="margin-top:6px;">
+        <div style="flex:1;min-width:200px;">
+          <label>Tự kết thúc lúc <span class="muted">(tuỳ chọn)</span></label>
+          <input id="newEndsAt" type="datetime-local">
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <label>Mã QR</label>
+          <select id="newQrMode">
+            <option value="">Đổi theo mặc định hệ thống</option>
+            <option value="custom">Đổi theo số giây tự chọn…</option>
+            <option value="0">Cố định (không đổi mã)</option>
+          </select>
+        </div>
+        <div style="min-width:140px;" id="qrSecondsBox" hidden>
+          <label>Số giây (5–300)</label>
+          <input id="newQrSeconds" type="number" min="5" max="300" value="10">
+        </div>
+      </div>
+      <p class="muted" style="margin-bottom:10px;">Hết giờ hẹn, hệ thống tự kết thúc điểm danh và gửi email tổng hợp cho bạn. Mã QR cố định tiện in ra giấy nhưng giảm khả năng chống điểm danh hộ.</p>
+      <div class="row">
         <button class="btn" id="btnCreateSession">Tạo phiên</button>
         <button class="btn secondary" id="btnCancelCreate">Huỷ</button>
       </div>
@@ -128,6 +157,23 @@ el('cpForm').addEventListener('submit', async (ev) => {
 });
 
 el('btnLogout').addEventListener('click', async () => { await api('/api/logout', { method: 'POST' }); location.href = '/'; });
+el('newQrMode').addEventListener('change', () => { el('qrSecondsBox').hidden = el('newQrMode').value !== 'custom'; });
+
+/* Quên mật khẩu */
+el('btnForgot').addEventListener('click', () => {
+  el('forgotForm').classList.toggle('hidden');
+  el('forgotUser').value = el('username').value;
+  el('forgotUser').focus();
+});
+el('forgotForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  clearAlert('loginAlert');
+  try {
+    const r = await api('/api/forgot', { method: 'POST', body: { username: el('forgotUser').value } });
+    showAlert('loginAlert', r.message, 'success');
+    hide('forgotForm');
+  } catch (e) { showAlert('loginAlert', e.message); }
+});
 el('btnNewSession').addEventListener('click', () => { show('newSessionForm'); el('newSessionName').focus(); });
 el('btnCancelCreate').addEventListener('click', () => hide('newSessionForm'));
 
@@ -135,7 +181,13 @@ el('btnCreateSession').addEventListener('click', async () => {
   clearAlert('listAlert');
   try {
     const type = document.querySelector('input[name="sessType"]:checked').value;
-    const s = await api('/api/sessions', { method: 'POST', body: { name: el('newSessionName').value, type } });
+    const mode = el('newQrMode').value;
+    const qrSeconds = mode === 'custom' ? el('newQrSeconds').value : mode === '0' ? 0 : null;
+    const s = await api('/api/sessions', { method: 'POST', body: {
+      name: el('newSessionName').value, type,
+      ends_at: el('newEndsAt').value || null,
+      qr_seconds: qrSeconds,
+    } });
     location.href = `/session.html?id=${s.id}`;
   } catch (e) { showAlert('listAlert', e.message); }
 });

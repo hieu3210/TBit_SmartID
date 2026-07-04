@@ -5,6 +5,8 @@ const { rateLimit } = require('../middleware');
 const { verifyCode } = require('../lib/qrtoken');
 const { normalizeCccd, normalizePhone, isValidCccd, isValidPhone } = require('../lib/normalize');
 const { DEFAULT_OPEN_FIELDS } = require('../lib/fields');
+const { qrSecondsFor } = require('../lib/sysconfig');
+const { maybeAutoClose } = require('../lib/autoclose');
 
 const router = express.Router();
 
@@ -13,7 +15,7 @@ const ONE_YEAR = 365 * 24 * 3600 * 1000;
 
 async function getSessionByToken(token) {
   const { rows } = await query('SELECT * FROM sessions WHERE token = $1', [token]);
-  return rows[0];
+  return maybeAutoClose(rows[0]); // hết giờ hẹn thì tự kết thúc ngay khi được truy cập
 }
 
 // Thông tin công khai của phiên (tên, trạng thái) cho trang điểm danh
@@ -111,7 +113,7 @@ router.post('/api/checkin/:token', rateLimit(15), async (req, res, next) => {
 
     // Lớp 1: mã QR động — ảnh chụp QR cũ hết hạn ngay sau chu kỳ đổi mã
     const { cccd, phone, c } = req.body || {};
-    if (!verifyCode(s.token, String(c || ''))) {
+    if (!verifyCode(s.token, String(c || ''), await qrSecondsFor(s))) {
       return res.status(400).json({ error: 'Mã QR đã hết hạn — vui lòng quét lại mã đang hiển thị trên màn hình' });
     }
 

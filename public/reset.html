@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đặt lại mật khẩu — TBit SmartID</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="/">TBit SmartID</a>
+</div>
+
+<div class="container">
+  <div style="max-width:400px;margin:48px auto 0;">
+    <div class="card">
+      <h2 style="text-align:center;font-size:22px;">Đặt lại mật khẩu</h2>
+      <p class="muted" style="text-align:center;margin-bottom:18px;">Nhập mật khẩu mới cho tài khoản của bạn.</p>
+      <div id="alert" class="alert hidden"></div>
+      <form id="form">
+        <label for="pw1">Mật khẩu mới (ít nhất 6 ký tự)</label>
+        <input id="pw1" type="password" minlength="6" autocomplete="new-password" required>
+        <label for="pw2">Nhập lại mật khẩu mới</label>
+        <input id="pw2" type="password" minlength="6" autocomplete="new-password" required>
+        <button class="btn full big" type="submit" id="btnSubmit">Đặt lại mật khẩu</button>
+      </form>
+      <div id="doneBox" class="hidden" style="text-align:center;">
+        <p style="margin:14px 0;">✅ Mật khẩu đã được đặt lại thành công.</p>
+        <a class="btn full" href="/">Đăng nhập ngay</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/shell.js"></script>
+<script>
+const token = new URLSearchParams(location.search).get('token') || '';
+if (!token) showAlert('alert', 'Link không hợp lệ — thiếu mã đặt lại. Hãy dùng đúng link trong email.');
+
+el('form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  clearAlert('alert');
+  if (el('pw1').value !== el('pw2').value) return showAlert('alert', 'Mật khẩu nhập lại không khớp');
+  const btn = el('btnSubmit');
+  btn.disabled = true;
+  try {
+    await api('/api/reset', { method: 'POST', body: { token, password: el('pw1').value } });
+    hide('form'); show('doneBox');
+  } catch (e) {
+    showAlert('alert', e.message);
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

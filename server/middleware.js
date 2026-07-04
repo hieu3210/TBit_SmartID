@@ -1,4 +1,5 @@
 const { query } = require('./db');
+const { maybeAutoClose } = require('./lib/autoclose');
 
 function requireAuth(req, res, next) {
   if (!req.session.user) return res.status(401).json({ error: 'Chưa đăng nhập' });
@@ -19,7 +20,7 @@ async function loadOwnedSession(req, res, next) {
     if (!s) return res.status(404).json({ error: 'Không tìm thấy phiên điểm danh' });
     const u = req.session.user;
     if (s.owner_id !== u.id && u.role !== 'admin') return res.status(403).json({ error: 'Bạn không có quyền với phiên này' });
-    req.attSession = s;
+    req.attSession = await maybeAutoClose(s);
     next();
   } catch (e) { next(e); }
 }

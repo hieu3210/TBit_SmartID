@@ -12,7 +12,9 @@ function customLabelsOf(session) {
   const coreKeys = ['full_name', 'phone', 'cccd', 'unit', 'email'];
   return (session.fields || []).filter((f) => !coreKeys.includes(f.key)).map((f) => f.label);
 }
-const { currentCode, secondsLeft, ROTATE_SECONDS } = require('../lib/qrtoken');
+const { currentCode, secondsLeft } = require('../lib/qrtoken');
+const { qrSecondsFor } = require('../lib/sysconfig');
+const { normalizeCccd, normalizePhone, isValidCccd, isValidPhone } = require('../lib/normalize');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -71,13 +73,34 @@ router.get('/', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const name = String((req.body || {}).name || '').trim();
+    const b = req.body || {};
+    const name = String(b.name || '').trim();
     if (!name) return res.status(400).json({ error: 'Vui lòng nhập tên sự kiện' });
-    const type = (req.body || {}).type === 'open' ? 'open' : 'list';
+    const type = b.type === 'open' ? 'open' : 'list';
+
+    // Thời gian tự kết thúc (tuỳ chọn): 'YYYY-MM-DDTHH:mm' từ input datetime-local, giờ VN
+    let endsAt = null;
+    if (b.ends_at) {
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(b.ends_at)) return res.status(400).json({ error: 'Thời gian kết thúc không hợp lệ' });
+      endsAt = b.ends_at.replace('T', ' ') + ':00';
+      if (endsAt <= nowVN()) return res.status(400).json({ error: 'Thời gian kết thúc phải ở tương lai' });
+    }
+
+    // Chu kỳ QR riêng (tuỳ chọn): null = mặc định hệ thống, 0 = mã cố định, 5–300 giây
+    let qrSeconds = null;
+    if (b.qr_seconds != null && b.qr_seconds !== '') {
+      qrSeconds = parseInt(b.qr_seconds, 10);
+      if (!Number.isFinite(qrSeconds) || (qrSeconds !== 0 && (qrSeconds < 5 || qrSeconds > 300))) {
+        return res.status(400).json({ error: 'Chu kỳ đổi QR phải là 0 (cố định) hoặc từ 5 đến 300 giây' });
+      }
+    }
+
     const token = crypto.randomBytes(16).toString('hex');
     const { rows } = await query(
-      'INSERT INTO sessions (name, token, owner_id, created_at, type, fields) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-      [name, token, req.session.user.id, nowVN(), type, type === 'open' ? JSON.stringify(DEFAULT_OPEN_FIELDS) : null]
+      `INSERT INTO sessions (name, token, owner_id, created_at, type, fields, ends_at, qr_seconds)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [name, token, req.session.user.id, nowVN(), type,
+        type === 'open' ? JSON.stringify(DEFAULT_OPEN_FIELDS) : null, endsAt, qrSeconds]
     );
     res.json({ id: rows[0].id, name, token, status: 'draft', type });
   } catch (e) { next(e); }
@@ -192,10 +215,11 @@ router.get('/:id/qr', loadOwnedSession, async (req, res, next) => {
   try {
     const s = req.attSession;
     if (s.status !== 'open' && s.status !== 'supplement') return res.status(400).json({ error: 'Phiên không ở trạng thái điểm danh' });
-    const code = currentCode(s.token);
+    const rotateSeconds = await qrSecondsFor(s); // 0 = mã cố định
+    const code = currentCode(s.token, rotateSeconds);
     const url = `${baseUrl(req)}/checkin/${s.token}?c=${code}`;
     const dataUrl = await QRCode.toDataURL(url, { width: 640, margin: 1 });
-    res.json({ dataUrl, url, code, secondsLeft: secondsLeft(), rotateSeconds: ROTATE_SECONDS, stats: await statsFor(s.id) });
+    res.json({ dataUrl, url, code, secondsLeft: secondsLeft(rotateSeconds), rotateSeconds, stats: await statsFor(s.id) });
   } catch (e) { next(e); }
 });
 
@@ -254,13 +278,144 @@ router.post('/:id/attendees/:aid/resolve', loadOwnedSession, async (req, res, ne
   } catch (e) { next(e); }
 });
 
-// Xoá một bản ghi danh (chỉ phiên ghi danh — BTC loại bỏ lượt rác/thử nghiệm)
+/* ===== Thêm / sửa / xoá thành viên thủ công (phiên theo danh sách) ===== */
+
+// Kiểm tra + chuẩn hoá dữ liệu một thành viên từ form
+function parseMember(b) {
+  const cccd = normalizeCccd((b || {}).cccd);
+  const fullName = String((b || {}).full_name || '').trim();
+  const phone = normalizePhone((b || {}).phone);
+  if (!fullName) return { error: 'Vui lòng nhập họ và tên' };
+  if (!isValidCccd(cccd)) return { error: 'CCCD phải đủ 12 chữ số' };
+  if (!isValidPhone(phone)) return { error: 'Số điện thoại không hợp lệ' };
+  const extra = {};
+  Object.entries((b || {}).extra || {}).forEach(([k, v]) => {
+    const val = String(v == null ? '' : v).trim();
+    if (val) extra[String(k).slice(0, 40)] = val.slice(0, 200);
+  });
+  return { member: {
+    cccd, full_name: fullName, phone,
+    unit: String((b || {}).unit || '').trim() || null,
+    email: String((b || {}).email || '').trim() || null,
+    extra: Object.keys(extra).length ? extra : null,
+  } };
+}
+
+function canEditMembers(s) {
+  return s.type !== 'open' && ['draft', 'open', 'supplement'].includes(s.status);
+}
+
+// Thêm thành viên (khi nháp hoặc đang điểm danh)
+router.post('/:id/attendees', loadOwnedSession, async (req, res, next) => {
+  try {
+    const s = req.attSession;
+    if (!canEditMembers(s)) return res.status(400).json({ error: 'Phiên không cho phép sửa danh sách lúc này' });
+    const { member, error } = parseMember(req.body);
+    if (error) return res.status(400).json({ error });
+    const dup = await query('SELECT 1 FROM attendees WHERE session_id = $1 AND cccd = $2', [s.id, member.cccd]);
+    if (dup.rows.length) return res.status(400).json({ error: 'CCCD này đã có trong danh sách' });
+    await query(
+      `INSERT INTO attendees (session_id, stt, cccd, full_name, unit, phone, email, extra)
+       VALUES ($1, (SELECT COALESCE(MAX(stt), 0) + 1 FROM attendees WHERE session_id = $1), $2, $3, $4, $5, $6, $7)`,
+      [s.id, member.cccd, member.full_name, member.unit, member.phone, member.email,
+        member.extra ? JSON.stringify(member.extra) : null]);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+// Sửa thành viên (không sửa được người đã điểm danh)
+router.put('/:id/attendees/:aid', loadOwnedSession, async (req, res, next) => {
+  try {
+    const s = req.attSession;
+    if (!canEditMembers(s)) return res.status(400).json({ error: 'Phiên không cho phép sửa danh sách lúc này' });
+    const { rows } = await query('SELECT * FROM attendees WHERE id = $1 AND session_id = $2', [req.params.aid, s.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Không tìm thấy người trong danh sách' });
+    if (rows[0].status === 'present') return res.status(400).json({ error: 'Không thể sửa người đã điểm danh' });
+    const { member, error } = parseMember(req.body);
+    if (error) return res.status(400).json({ error });
+    const dup = await query('SELECT 1 FROM attendees WHERE session_id = $1 AND cccd = $2 AND id <> $3',
+      [s.id, member.cccd, req.params.aid]);
+    if (dup.rows.length) return res.status(400).json({ error: 'CCCD này đã có trong danh sách' });
+    await query(
+      `UPDATE attendees SET cccd = $1, full_name = $2, unit = $3, phone = $4, email = $5, extra = $6 WHERE id = $7`,
+      [member.cccd, member.full_name, member.unit, member.phone, member.email,
+        member.extra ? JSON.stringify(member.extra) : null, req.params.aid]);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+// Xoá thành viên / bản ghi danh.
+// Phiên ghi danh: xoá được mọi bản ghi (loại lượt rác). Phiên danh sách: chỉ xoá người CHƯA điểm danh.
 router.delete('/:id/attendees/:aid', loadOwnedSession, async (req, res, next) => {
   try {
-    if (req.attSession.type !== 'open') return res.status(400).json({ error: 'Chỉ xoá được bản ghi của phiên ghi danh' });
-    const r = await query('DELETE FROM attendees WHERE id = $1 AND session_id = $2', [req.params.aid, req.attSession.id]);
-    if (!r.rowCount) return res.status(404).json({ error: 'Không tìm thấy bản ghi danh' });
-    res.json({ ok: true, stats: await statsFor(req.attSession.id) });
+    const s = req.attSession;
+    const { rows } = await query('SELECT * FROM attendees WHERE id = $1 AND session_id = $2', [req.params.aid, s.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Không tìm thấy người trong danh sách' });
+    if (s.type !== 'open') {
+      if (!canEditMembers(s)) return res.status(400).json({ error: 'Phiên không cho phép sửa danh sách lúc này' });
+      if (rows[0].status === 'present') return res.status(400).json({ error: 'Không thể xoá người đã điểm danh' });
+    }
+    await query('DELETE FROM attendees WHERE id = $1', [req.params.aid]);
+    res.json({ ok: true, stats: await statsFor(s.id) });
+  } catch (e) { next(e); }
+});
+
+/* ===== Lưu / tái sử dụng danh sách ===== */
+
+// Lưu danh sách hiện tại của phiên để dùng lại
+router.post('/:id/save-list', loadOwnedSession, async (req, res, next) => {
+  try {
+    const s = req.attSession;
+    if (s.type === 'open') return res.status(400).json({ error: 'Phiên ghi danh không có danh sách để lưu' });
+    const name = String((req.body || {}).name || '').trim();
+    if (!name || name.length > 80) return res.status(400).json({ error: 'Vui lòng đặt tên danh sách (tối đa 80 ký tự)' });
+    const { rows } = await query(
+      'SELECT stt, cccd, full_name, unit, phone, email, extra FROM attendees WHERE session_id = $1 ORDER BY stt', [s.id]);
+    if (!rows.length) return res.status(400).json({ error: 'Chưa có danh sách để lưu' });
+    const { rows: [saved] } = await query(
+      'INSERT INTO saved_lists (owner_id, name, data, created_at) VALUES ($1, $2, $3, $4) RETURNING id',
+      [req.session.user.id, name, JSON.stringify(rows), nowVN()]);
+    res.json({ ok: true, id: saved.id, name, count: rows.length });
+  } catch (e) { next(e); }
+});
+
+// Nạp danh sách đã lưu vào phiên (thay thế danh sách hiện tại, chỉ khi nháp)
+router.post('/:id/use-list', loadOwnedSession, async (req, res, next) => {
+  try {
+    const s = req.attSession;
+    if (s.type === 'open') return res.status(400).json({ error: 'Phiên ghi danh không dùng danh sách' });
+    if (s.status !== 'draft') return res.status(400).json({ error: 'Chỉ nạp danh sách khi phiên chưa bắt đầu' });
+    const { rows } = await query('SELECT * FROM saved_lists WHERE id = $1 AND owner_id = $2',
+      [(req.body || {}).list_id, req.session.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Không tìm thấy danh sách đã lưu' });
+    const members = rows[0].data || [];
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM attendees WHERE session_id = $1', [s.id]);
+      for (let i = 0; i < members.length; i += 200) {
+        const chunk = members.slice(i, i + 200);
+        const values = [];
+        const params = [];
+        chunk.forEach((m, j) => {
+          const base = j * 8;
+          values.push(`($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8})`);
+          params.push(s.id, i + j + 1, m.cccd, m.full_name, m.unit, m.phone, m.email,
+            m.extra ? JSON.stringify(m.extra) : null);
+        });
+        await client.query(
+          `INSERT INTO attendees (session_id, stt, cccd, full_name, unit, phone, email, extra) VALUES ${values.join(', ')}`,
+          params);
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      client.release();
+      return next(e);
+    }
+    client.release();
+    res.json({ ok: true, imported: members.length });
   } catch (e) { next(e); }
 });
 

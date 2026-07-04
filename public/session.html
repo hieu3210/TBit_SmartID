@@ -38,10 +38,19 @@
         📄 Kéo-thả file .xlsx vào đây hoặc <b>bấm để chọn file</b>
         <input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden">
       </div>
-      <div id="uploadResult"></div>
+      <div class="row">
+        <button class="btn secondary small" id="btnPickList">📂 Chọn danh sách đã lưu</button>
+        <span class="muted">— hoặc dùng lại danh sách của phiên trước</span>
+      </div>
+      <div id="uploadResult" class="mt"></div>
     </div>
     <div class="card">
-      <h2>2. Xem trước danh sách (<span id="previewCount">0</span> người)</h2>
+      <div class="row" style="margin-bottom:10px;">
+        <h2 style="margin:0;">2. Danh sách (<span id="previewCount">0</span> người)</h2>
+        <div class="spacer"></div>
+        <button class="btn secondary small" id="btnSaveList">💾 Lưu danh sách để dùng lại</button>
+        <button class="btn small" id="btnAddMember">＋ Thêm người</button>
+      </div>
       <div class="table-wrap"><table id="previewTable">
         <thead></thead>
         <tbody></tbody>
@@ -76,7 +85,9 @@
       <div id="supplementNote" class="alert warn hidden">Đang <b>điểm danh bổ sung</b> — người đến muộn quét mã dưới đây.</div>
       <img id="qrImg" alt="QR điểm danh">
       <div class="qr-note"><span id="qrNoteText">Quét mã bằng camera điện thoại → nhập CCCD + SĐT.</span><br>
-        <span class="countdown">Mã tự đổi sau <b id="countdown">–</b> giây (chống điểm danh hộ từ xa)</span></div>
+        <span class="countdown" id="countdownWrap">Mã tự đổi sau <b id="countdown">–</b> giây (chống điểm danh hộ từ xa)</span>
+        <span class="countdown hidden" id="fixedNote">Mã QR cố định — không tự đổi</span>
+        <span class="countdown" id="endsNote"></span></div>
       <div class="qr-counter"><span id="liveCounter">0</span><small id="liveCounterSub"> / <span id="liveTotal">0</span> có mặt</small></div>
       <button class="btn danger big" id="btnClose">⏹ Kết thúc điểm danh</button>
     </div>
@@ -86,7 +97,11 @@
       <div class="table-wrap"><table id="flaggedTable"><tbody></tbody></table></div>
     </div>
     <div class="card" id="manualCard">
-      <h2 id="manualTitle">Tích tay (BTC xác nhận trực tiếp)</h2>
+      <div class="row" style="margin-bottom:8px;">
+        <h2 id="manualTitle" style="margin:0;">Tích tay (BTC xác nhận trực tiếp)</h2>
+        <div class="spacer"></div>
+        <button class="btn small hidden" id="btnAddMemberLive">＋ Thêm người</button>
+      </div>
       <input id="manualSearch" placeholder="Tìm theo tên / CCCD / đơn vị…">
       <div class="table-wrap"><table id="manualTable"><tbody></tbody></table></div>
     </div>
@@ -135,6 +150,47 @@
   </div>
 </div>
 
+<!-- Modal thêm/sửa thành viên -->
+<div class="modal-overlay hidden" id="memberModal">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-hero">
+      <div><h2 id="memberModalTitle">Thêm người</h2><p>Thành viên tham dự phiên</p></div>
+      <button class="modal-close" type="button" data-close aria-label="Đóng">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="memberAlert" class="alert hidden"></div>
+      <form id="memberForm">
+        <label>Số CCCD (12 số)</label>
+        <input id="mCccd" inputmode="numeric" maxlength="12" required>
+        <label>Họ và tên</label>
+        <input id="mName" maxlength="120" required>
+        <label>Số điện thoại</label>
+        <input id="mPhone" inputmode="tel" maxlength="12" required>
+        <label>Đơn vị</label>
+        <input id="mUnit" maxlength="120">
+        <label>Email</label>
+        <input id="mEmail" type="email" maxlength="120">
+        <div id="mExtraBox"></div>
+        <button class="btn full" type="submit">Lưu</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal chọn danh sách đã lưu -->
+<div class="modal-overlay hidden" id="listModal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-hero">
+      <div><h2>Danh sách đã lưu</h2><p>Chọn để nạp vào phiên (thay thế danh sách hiện tại)</p></div>
+      <button class="modal-close" type="button" data-close aria-label="Đóng">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="listAlert2" class="alert hidden"></div>
+      <div id="savedListBox"></div>
+    </div>
+  </div>
+</div>
+
 <script src="/js/api.js"></script>
 <script src="/js/shell.js"></script>
 <script>
@@ -168,7 +224,12 @@ async function load() {
       el('manualTitle').textContent = 'Danh sách đã ghi danh';
       el('manualSearch').placeholder = 'Tìm theo tên / đơn vị…';
       el('btnClose').textContent = '⏹ Kết thúc ghi danh';
+    } else {
+      // Phiên danh sách: cho phép thêm người ngay lúc đang điểm danh
+      show('btnAddMemberLive');
+      api('/api/settings/excel-fields').then((c) => { extraCfg = c.extra; }).catch(() => {});
     }
+    el('endsNote').textContent = sess.ends_at ? ` · ⏰ Tự kết thúc lúc ${sess.ends_at.slice(0, 16)}` : '';
     startQrPolling();
     renderManualList();
   } else {
@@ -212,20 +273,120 @@ async function uploadFile(file) {
   }
 }
 
+let extraCfg = [];      // trường Excel bổ sung (cấu hình toàn hệ thống)
+let memberById = {};    // tra cứu thành viên cho modal sửa
+
 async function renderPreview() {
   const [rows, fieldCfg] = await Promise.all([
     api(`/api/sessions/${sessionId}/attendees`),
     api('/api/settings/excel-fields'),
   ]);
-  const extras = fieldCfg.extra;
+  extraCfg = fieldCfg.extra;
+  rows.forEach((a) => { memberById[a.id] = a; });
   el('previewCount').textContent = rows.length;
   el('previewTable').querySelector('thead').innerHTML =
     `<tr><th>STT</th><th>CCCD</th><th>Họ và tên</th><th>Đơn vị</th><th>SĐT</th>` +
-    extras.map((f) => `<th>${esc(f)}</th>`).join('') + '</tr>';
+    extraCfg.map((f) => `<th>${esc(f)}</th>`).join('') + '<th></th></tr>';
   el('previewTable').querySelector('tbody').innerHTML = rows.slice(0, 300).map((a) =>
     `<tr><td>${a.stt}</td><td>${esc(a.cccd)}</td><td>${esc(a.full_name)}</td><td>${esc(a.unit || '')}</td><td>${esc(a.phone || '')}</td>` +
-    extras.map((f) => `<td>${esc((a.extra || {})[f] || '')}</td>`).join('') + '</tr>').join('');
+    extraCfg.map((f) => `<td>${esc((a.extra || {})[f] || '')}</td>`).join('') +
+    `<td style="text-align:right;white-space:nowrap;">
+       <button class="btn secondary small" onclick="openMemberModal(${a.id})">Sửa</button>
+       <button class="btn danger small" onclick="deleteMember(${a.id})">Xoá</button>
+     </td></tr>`).join('');
   el('btnOpen').disabled = rows.length === 0;
+}
+
+/* ---------- Thêm / sửa / xoá thành viên ---------- */
+let editingMemberId = null;
+
+function openMemberModal(id) {
+  editingMemberId = id || null;
+  const a = id ? memberById[id] : null;
+  el('memberModalTitle').textContent = a ? 'Sửa thông tin' : 'Thêm người';
+  el('mCccd').value = a ? a.cccd : '';
+  el('mName').value = a ? a.full_name : '';
+  el('mPhone').value = a ? (a.phone || '') : '';
+  el('mUnit').value = a ? (a.unit || '') : '';
+  el('mEmail').value = a ? (a.email || '') : '';
+  el('mExtraBox').innerHTML = extraCfg.map((f) => `
+    <label>${esc(f)}</label>
+    <input data-label="${esc(f)}" maxlength="200" value="${esc((a && a.extra && a.extra[f]) || '')}">`).join('');
+  clearAlert('memberAlert');
+  show('memberModal');
+  el('mCccd').focus();
+}
+
+function refreshMembers() {
+  if (sess.status === 'draft') renderPreview(); else renderManualList();
+}
+
+el('memberForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  clearAlert('memberAlert');
+  const extra = {};
+  el('mExtraBox').querySelectorAll('input[data-label]').forEach((inp) => { extra[inp.dataset.label] = inp.value; });
+  const body = {
+    cccd: el('mCccd').value, full_name: el('mName').value, phone: el('mPhone').value,
+    unit: el('mUnit').value, email: el('mEmail').value, extra,
+  };
+  try {
+    if (editingMemberId) await api(`/api/sessions/${sessionId}/attendees/${editingMemberId}`, { method: 'PUT', body });
+    else await api(`/api/sessions/${sessionId}/attendees`, { method: 'POST', body });
+    hide('memberModal');
+    refreshMembers();
+  } catch (e) { showAlert('memberAlert', e.message); }
+});
+
+async function deleteMember(id) {
+  const a = memberById[id];
+  if (!confirm(`Xoá "${a ? a.full_name : 'người này'}" khỏi danh sách?`)) return;
+  try { await api(`/api/sessions/${sessionId}/attendees/${id}`, { method: 'DELETE' }); refreshMembers(); }
+  catch (e) { showAlert('alert', e.message); }
+}
+
+el('btnAddMember').addEventListener('click', () => openMemberModal(null));
+el('btnAddMemberLive').addEventListener('click', () => openMemberModal(null));
+
+/* ---------- Lưu / chọn danh sách ---------- */
+el('btnSaveList').addEventListener('click', async () => {
+  const name = prompt('Tên danh sách (VD: Cán bộ khoa CNTT):');
+  if (!name) return;
+  try {
+    const r = await api(`/api/sessions/${sessionId}/save-list`, { method: 'POST', body: { name } });
+    el('uploadResult').innerHTML = `<div class="alert success">Đã lưu danh sách "${esc(r.name)}" (${r.count} người) — lần sau tạo phiên có thể dùng lại.</div>`;
+  } catch (e) { showAlert('alert', e.message); }
+});
+
+el('btnPickList').addEventListener('click', openListModal);
+
+async function openListModal() {
+  clearAlert('listAlert2');
+  show('listModal');
+  const lists = await api('/api/lists');
+  el('savedListBox').innerHTML = lists.length ? lists.map((l) => `
+    <div class="row" style="border-bottom:1px solid var(--border);padding:9px 0;">
+      <div><b>${esc(l.name)}</b><br><span class="muted">${l.count} người · lưu ${esc(l.created_at)}</span></div>
+      <div class="spacer"></div>
+      <button class="btn small" onclick="useList(${l.id})">Dùng</button>
+      <button class="btn danger small" onclick="deleteSavedList(${l.id})">Xoá</button>
+    </div>`).join('')
+    : '<p class="muted">Bạn chưa lưu danh sách nào. Sau khi có danh sách, bấm <b>💾 Lưu danh sách để dùng lại</b>.</p>';
+}
+
+async function useList(id) {
+  try {
+    const r = await api(`/api/sessions/${sessionId}/use-list`, { method: 'POST', body: { list_id: id } });
+    hide('listModal');
+    el('uploadResult').innerHTML = `<div class="alert success">Đã nạp ${r.imported} người từ danh sách đã lưu.</div>`;
+    renderPreview();
+  } catch (e) { showAlert('listAlert2', e.message); }
+}
+
+async function deleteSavedList(id) {
+  if (!confirm('Xoá danh sách đã lưu này?')) return;
+  try { await api(`/api/lists/${id}`, { method: 'DELETE' }); openListModal(); }
+  catch (e) { showAlert('listAlert2', e.message); }
 }
 
 el('btnOpen').addEventListener('click', async () => {
@@ -321,12 +482,18 @@ function startQrPolling() {
       const q = await api(`/api/sessions/${sessionId}/qr`);
       el('qrImg').src = q.dataUrl;
       qrSecondsLeft = q.secondsLeft;
+      const fixed = q.rotateSeconds === 0;
+      el('countdownWrap').classList.toggle('hidden', fixed);
+      el('fixedNote').classList.toggle('hidden', !fixed);
       el('liveCounter').textContent = q.stats.present;
       el('liveTotal').textContent = q.stats.total;
       renderFlagged();
-      // Phiên ghi danh: cập nhật trực tiếp danh sách đã ghi danh (trừ lúc đang tìm kiếm)
+      // Cập nhật trực tiếp danh sách (trừ lúc đang tìm kiếm)
       if (isOpenType() && !el('manualSearch').value && document.activeElement !== el('manualSearch')) renderManualList();
-    } catch (e) { /* phiên có thể vừa bị đóng ở tab khác */ }
+    } catch (e) {
+      // Phiên vừa kết thúc (tự động hoặc ở tab khác) → nạp lại trạng thái
+      load();
+    }
   };
   tick();
   pollTimer = setInterval(tick, 4000);
@@ -376,14 +543,17 @@ async function renderManualList() {
       </tr>`).join('');
     return;
   }
+  rows.forEach((a) => { memberById[a.id] = a; });
   el('manualTable').querySelector('tbody').innerHTML = rows.slice(0, 100).map((a) => `
     <tr>
       <td><b>${esc(a.full_name)}</b><br><span class="muted">${esc(a.unit || '')}</span></td>
       <td>${a.status === 'present' ? '<span class="badge open">Có mặt</span>' : '<span class="badge draft">Vắng</span>'}</td>
-      <td style="text-align:right;">
+      <td style="text-align:right;white-space:nowrap;">
         ${a.status === 'present'
           ? `<button class="btn secondary small" onclick="markAttendee(${a.id},'absent')">Bỏ tích</button>`
-          : `<button class="btn green small" onclick="markAttendee(${a.id},'present')">✓ Có mặt</button>`}
+          : `<button class="btn green small" onclick="markAttendee(${a.id},'present')">✓ Có mặt</button>
+             <button class="btn secondary small" onclick="openMemberModal(${a.id})">Sửa</button>
+             <button class="btn danger small" onclick="deleteMember(${a.id})">Xoá</button>`}
       </td>
     </tr>`).join('');
 }

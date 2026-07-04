@@ -13,4 +13,5 @@ module.exports = {
   sessionSecret: ROOT_SECRET,
   cookieSecret: derive('cookie'),
   qrSecret: derive('qr'),
+  resetSecret: derive('password-reset'),
 };

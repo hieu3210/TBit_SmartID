@@ -3,43 +3,64 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quản lý người dùng — TBit SmartID</title>
+<title>Quản trị — TBit SmartID</title>
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
 <div class="topbar">
-  <a class="brand" href="/">📋 TBit SmartID</a>
+  <a class="brand" href="/">TBit SmartID</a>
   <div class="actions"><a href="/">← Danh sách phiên</a></div>
 </div>
 
 <div class="container">
-  <h2 style="font-size:20px;margin-bottom:14px;">Quản lý người dùng</h2>
+  <h2 style="font-size:20px;margin-bottom:14px;">Quản trị hệ thống</h2>
   <div id="alert" class="alert hidden"></div>
 
+  <!-- ===== Thiết lập hệ thống ===== -->
   <div class="card">
-    <h2>Thêm người dùng</h2>
-    <form id="addForm" class="row" style="align-items:flex-end;">
-      <div style="flex:1;min-width:140px;">
-        <label>Tên đăng nhập</label>
-        <input id="newUsername" style="margin-bottom:0;" required>
+    <h2>Thiết lập hệ thống</h2>
+    <div id="sysAlert" class="alert hidden"></div>
+    <div class="row" style="align-items:flex-end;">
+      <div style="min-width:220px;">
+        <label>Chu kỳ đổi mã QR mặc định (giây)</label>
+        <input id="sysQrSeconds" type="number" min="5" max="300" style="margin-bottom:0;">
       </div>
-      <div style="flex:1;min-width:140px;">
-        <label>Mật khẩu ban đầu</label>
-        <input id="newPassword" type="text" minlength="6" style="margin-bottom:0;" required>
+      <p class="muted" style="flex:1;min-width:200px;margin:0;">Áp dụng cho phiên không đặt chu kỳ riêng (5–300 giây).</p>
+    </div>
+    <h2 class="mt" style="font-size:16px;">Máy chủ email (SMTP)</h2>
+    <p class="muted" style="margin-bottom:10px;">Dùng để gửi email đặt lại mật khẩu và thông báo kết thúc phiên. VD Gmail: <b>smtp.gmail.com</b>, cổng <b>587</b>, mật khẩu là <i>App Password</i>.</p>
+    <div class="row">
+      <div style="flex:2;min-width:180px;">
+        <label>Máy chủ SMTP</label>
+        <input id="smtpHost" placeholder="smtp.gmail.com">
       </div>
-      <div style="min-width:120px;">
-        <label>Vai trò</label>
-        <select id="newRole" style="margin-bottom:0;">
-          <option value="user">Người dùng</option>
-          <option value="admin">Quản trị</option>
-        </select>
+      <div style="flex:1;min-width:90px;">
+        <label>Cổng</label>
+        <input id="smtpPort" type="number" placeholder="587">
       </div>
-      <button class="btn" type="submit">＋ Thêm</button>
-    </form>
-    <p class="muted mt">Người dùng mới sẽ được yêu cầu đổi mật khẩu khi đăng nhập lần đầu.</p>
+    </div>
+    <div class="row">
+      <div style="flex:1;min-width:180px;">
+        <label>Tài khoản</label>
+        <input id="smtpUser" placeholder="ban@gmail.com" autocomplete="off">
+      </div>
+      <div style="flex:1;min-width:180px;">
+        <label>Mật khẩu <span class="muted" id="smtpPassHint">(bỏ trống = giữ nguyên)</span></label>
+        <input id="smtpPass" type="password" autocomplete="new-password">
+      </div>
+    </div>
+    <label>Địa chỉ người gửi (From — bỏ trống dùng tài khoản)</label>
+    <input id="smtpFrom" placeholder="TBit SmartID <ban@gmail.com>">
+    <div class="row">
+      <button class="btn" id="btnSaveSys">💾 Lưu thiết lập</button>
+      <div class="spacer"></div>
+      <input id="testEmailTo" placeholder="Email nhận thử" style="max-width:220px;margin-bottom:0;">
+      <button class="btn secondary" id="btnTestEmail">✉ Gửi email thử</button>
+    </div>
   </div>
 
+  <!-- ===== Trường Excel ===== -->
   <div class="card">
     <h2>Trường thông tin file Excel</h2>
     <p class="muted" style="margin-bottom:10px;">
@@ -61,26 +82,128 @@
     </form>
   </div>
 
+  <!-- ===== Người dùng ===== -->
+  <div class="card">
+    <h2>Thêm người dùng</h2>
+    <form id="addForm">
+      <div class="row">
+        <div style="flex:1;min-width:150px;">
+          <label>Họ và tên</label>
+          <input id="newFullName" required>
+        </div>
+        <div style="flex:1;min-width:180px;">
+          <label>Email</label>
+          <input id="newEmail" type="email" required>
+        </div>
+      </div>
+      <div class="row" style="align-items:flex-end;">
+        <div style="flex:1;min-width:130px;">
+          <label>Tên đăng nhập</label>
+          <input id="newUsername" style="margin-bottom:0;" required>
+        </div>
+        <div style="flex:1;min-width:130px;">
+          <label>Mật khẩu ban đầu</label>
+          <input id="newPassword" type="text" minlength="6" style="margin-bottom:0;" required>
+        </div>
+        <div style="min-width:120px;">
+          <label>Vai trò</label>
+          <select id="newRole" style="margin-bottom:0;">
+            <option value="user">Người dùng</option>
+            <option value="admin">Quản trị</option>
+          </select>
+        </div>
+        <button class="btn" type="submit">＋ Thêm</button>
+      </div>
+    </form>
+    <p class="muted mt">Người dùng mới sẽ được yêu cầu đổi mật khẩu khi đăng nhập lần đầu. Email dùng để đặt lại mật khẩu và nhận thông báo hệ thống.</p>
+  </div>
+
   <div class="card">
     <h2>Danh sách người dùng</h2>
     <div class="table-wrap"><table>
-      <thead><tr><th>Tên đăng nhập</th><th>Vai trò</th><th>Ngày tạo</th><th></th></tr></thead>
+      <thead><tr><th>Tên đăng nhập</th><th>Họ và tên</th><th>Email</th><th>Vai trò</th><th></th></tr></thead>
       <tbody id="userBody"></tbody>
     </table></div>
+  </div>
+</div>
+
+<!-- Modal sửa người dùng -->
+<div class="modal-overlay hidden" id="editUserModal">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-hero">
+      <div><h2>Sửa người dùng</h2><p id="editUserSub"></p></div>
+      <button class="modal-close" type="button" id="btnEditClose" aria-label="Đóng">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="editAlert" class="alert hidden"></div>
+      <form id="editForm">
+        <label>Họ và tên</label>
+        <input id="editFullName" required>
+        <label>Email</label>
+        <input id="editEmail" type="email" required>
+        <label>Vai trò</label>
+        <select id="editRole">
+          <option value="user">Người dùng</option>
+          <option value="admin">Quản trị</option>
+        </select>
+        <button class="btn full" type="submit">Lưu thay đổi</button>
+      </form>
+    </div>
   </div>
 </div>
 
 <script src="/js/api.js"></script>
 <script src="/js/shell.js"></script>
 <script>
+/* ---------- Thiết lập hệ thống ---------- */
+async function loadSystem() {
+  const cfg = await api('/api/settings/system');
+  el('sysQrSeconds').value = cfg.qr_rotate_seconds;
+  el('smtpHost').value = cfg.smtp.host;
+  el('smtpPort').value = cfg.smtp.port;
+  el('smtpUser').value = cfg.smtp.user;
+  el('smtpFrom').value = cfg.smtp.from;
+  el('smtpPassHint').textContent = cfg.smtp.has_pass ? '(đã lưu — bỏ trống để giữ nguyên)' : '';
+}
+
+el('btnSaveSys').addEventListener('click', async () => {
+  clearAlert('sysAlert');
+  try {
+    const body = { qr_rotate_seconds: el('sysQrSeconds').value };
+    if (el('smtpHost').value.trim()) {
+      body.smtp = {
+        host: el('smtpHost').value, port: el('smtpPort').value,
+        user: el('smtpUser').value, pass: el('smtpPass').value, from: el('smtpFrom').value,
+      };
+    }
+    await api('/api/settings/system', { method: 'PUT', body });
+    el('smtpPass').value = '';
+    showAlert('sysAlert', 'Đã lưu thiết lập hệ thống', 'success');
+    loadSystem();
+  } catch (e) { showAlert('sysAlert', e.message); }
+});
+
+el('btnTestEmail').addEventListener('click', async () => {
+  clearAlert('sysAlert');
+  try {
+    await api('/api/settings/test-email', { method: 'POST', body: { to: el('testEmailTo').value } });
+    showAlert('sysAlert', 'Đã gửi email thử — hãy kiểm tra hộp thư', 'success');
+  } catch (e) { showAlert('sysAlert', e.message); }
+});
+
+/* ---------- Người dùng ---------- */
+let users = [];
+
 async function loadUsers() {
-  const users = await api('/api/users');
+  users = await api('/api/users');
   el('userBody').innerHTML = users.map((u) => `
     <tr>
       <td><b>${esc(u.username)}</b></td>
+      <td>${esc(u.full_name || '—')}</td>
+      <td class="muted">${esc(u.email || '—')}</td>
       <td>${u.role === 'admin' ? '<span class="badge closed">Quản trị</span>' : '<span class="badge draft">Người dùng</span>'}</td>
-      <td class="muted">${esc(u.created_at)}</td>
       <td style="text-align:right;white-space:nowrap;">
+        <button class="btn secondary small" onclick="editUser(${u.id})">Sửa</button>
         <button class="btn secondary small" onclick="resetPassword(${u.id}, '${esc(u.username)}')">Đặt lại mật khẩu</button>
         <button class="btn danger small" onclick="removeUser(${u.id}, '${esc(u.username)}')">Xoá</button>
       </td>
@@ -93,11 +216,39 @@ el('addForm').addEventListener('submit', async (ev) => {
   try {
     await api('/api/users', { method: 'POST', body: {
       username: el('newUsername').value, password: el('newPassword').value, role: el('newRole').value,
+      full_name: el('newFullName').value, email: el('newEmail').value,
     }});
-    el('newUsername').value = ''; el('newPassword').value = '';
+    ['newUsername', 'newPassword', 'newFullName', 'newEmail'].forEach((id) => { el(id).value = ''; });
     showAlert('alert', 'Đã tạo người dùng', 'success');
     loadUsers();
   } catch (e) { showAlert('alert', e.message); }
+});
+
+let editingId = null;
+function editUser(id) {
+  const u = users.find((x) => x.id === id);
+  if (!u) return;
+  editingId = id;
+  el('editUserSub').textContent = u.username;
+  el('editFullName').value = u.full_name || '';
+  el('editEmail').value = u.email || '';
+  el('editRole').value = u.role;
+  clearAlert('editAlert');
+  show('editUserModal');
+}
+el('btnEditClose').addEventListener('click', () => hide('editUserModal'));
+el('editUserModal').addEventListener('click', (e) => { if (e.target === el('editUserModal')) hide('editUserModal'); });
+
+el('editForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  clearAlert('editAlert');
+  try {
+    await api(`/api/users/${editingId}`, { method: 'PUT', body: {
+      full_name: el('editFullName').value, email: el('editEmail').value, role: el('editRole').value,
+    }});
+    hide('editUserModal');
+    loadUsers();
+  } catch (e) { showAlert('editAlert', e.message); }
 });
 
 async function resetPassword(id, username) {
@@ -159,6 +310,7 @@ el('btnFieldsDefault').addEventListener('click', () => {
 
 loadUsers().catch((e) => showAlert('alert', e.message));
 loadFields().catch((e) => showAlert('fieldsAlert', e.message));
+loadSystem().catch((e) => showAlert('sysAlert', e.message));
 </script>
 </body>
 </html>

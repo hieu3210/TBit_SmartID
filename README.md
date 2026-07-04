@@ -9,8 +9,11 @@
 - Người tham dự **quét QR Code** bằng camera điện thoại, nhập **CCCD + số điện thoại** (hoặc điền form ghi danh) — không cần cài app.
 - **Chống gian lận**: QR động tự đổi mỗi 10 giây (ảnh chụp gửi người vắng hết hạn ngay), ràng buộc thiết bị (một máy điểm danh cho nhiều người sẽ bị gắn cờ ⚠ chờ BTC duyệt), giới hạn tần suất chống dò CCCD.
 - Kết thúc điểm danh xem ngay **thống kê tỉ lệ tham gia**, danh sách có mặt/vắng mặt, hỗ trợ **điểm danh bổ sung** và tích tay.
+- Hẹn **giờ tự kết thúc** khi tạo phiên — hết giờ hệ thống tự đóng điểm danh và **gửi email tổng hợp** (kèm Excel) cho người tạo.
+- **Lưu danh sách để dùng lại** giữa các phiên; **thêm/sửa/xoá thành viên thủ công** cả khi đang điểm danh (người đã điểm danh không sửa/xoá được).
+- Chu kỳ đổi QR đặt được **theo phiên** (hoặc mã cố định để in giấy) và **mặc định toàn hệ thống**.
 - Quản lý theo **phiên điểm danh**, dữ liệu lưu trữ lâu dài (PostgreSQL), **xuất Excel** kết quả.
-- **Đăng nhập quản trị**: admin tạo và quản lý người dùng bằng username/password.
+- **Đăng nhập quản trị**: admin quản lý người dùng (họ tên, email, vai trò), cấu hình **SMTP** để hệ thống gửi email; người dùng **đặt lại mật khẩu qua email**.
 
 Hướng dẫn sử dụng chi tiết cho ban tổ chức nằm ngay trong ứng dụng — menu **Hướng dẫn** trên thanh điều hướng. Kế hoạch phát triển, thiết kế, nghiên cứu chống gian lận: [PLAN.md](PLAN.md).
 
@@ -207,30 +210,36 @@ TBit_SmartID/
 ├── vercel.json              # Định tuyến mọi request vào Express
 ├── server/
 │   ├── app.js               # Express, cookie-session, khởi tạo DB; export app
-│   ├── db.js                # Pool PostgreSQL, schema tự tạo, seed admin, bảng settings, giờ VN
-│   ├── middleware.js        # requireAuth/requireAdmin, quyền sở hữu phiên, rate-limit
+│   ├── db.js                # Pool PostgreSQL, schema tự tạo, seed admin, bảng settings/saved_lists, giờ VN
+│   ├── middleware.js        # requireAuth/requireAdmin, quyền sở hữu phiên (kèm tự kết thúc), rate-limit
 │   ├── reset-admin.js       # Đặt lại mật khẩu admin
 │   ├── lib/
-│   │   ├── secrets.js       # Dẫn xuất khoá ký cookie + QR từ SESSION_SECRET
+│   │   ├── secrets.js       # Dẫn xuất khoá ký cookie + QR + token đặt lại mật khẩu từ SESSION_SECRET
 │   │   ├── excel.js         # Template, parse upload, xuất kết quả (kèm trường bổ sung)
-│   │   ├── fields.js        # Đọc/ghi/kiểm tra cấu hình trường Excel bổ sung
-│   │   ├── qrtoken.js       # Mã QR động HMAC theo cửa sổ 10s
+│   │   ├── fields.js        # Cấu hình trường Excel + trường form ghi danh tự do
+│   │   ├── qrtoken.js       # Mã QR động HMAC (chu kỳ theo phiên, hỗ trợ mã cố định)
+│   │   ├── sysconfig.js     # Thiết lập hệ thống: chu kỳ QR mặc định, SMTP
+│   │   ├── mailer.js        # Gửi email qua SMTP (nodemailer)
+│   │   ├── autoclose.js     # Tự kết thúc phiên hết giờ + email tổng hợp cho người tạo
 │   │   └── normalize.js     # Chuẩn hoá CCCD/SĐT
 │   └── routes/
-│       ├── auth.js          # Đăng nhập, đổi mật khẩu
-│       ├── users.js         # CRUD người dùng (admin)
-│       ├── settings.js      # Cấu hình trường Excel (GET mọi người dùng, PUT admin)
-│       ├── sessions.js      # Phiên điểm danh, upload, QR, thống kê, xuất Excel
-│       └── checkin.js       # API điểm danh công khai (chống gian lận Lớp 1)
+│       ├── auth.js          # Đăng nhập, đổi mật khẩu, quên/đặt lại mật khẩu qua email
+│       ├── users.js         # CRUD người dùng: họ tên, email, vai trò (admin)
+│       ├── settings.js      # Trường Excel + thiết lập hệ thống (QR, SMTP, email thử)
+│       ├── lists.js         # Danh sách đại biểu lưu sẵn để dùng lại
+│       ├── sessions.js      # Phiên: upload, QR, thống kê, xuất Excel, CRUD thành viên, lưu/nạp danh sách
+│       └── checkin.js       # API điểm danh/ghi danh công khai (chống gian lận Lớp 1)
 ├── public/                  # Giao diện tĩnh, không cần build
-│   ├── index.html           # Đăng nhập + danh sách phiên
-│   ├── session.html         # Chi tiết phiên: upload, QR, tích tay, thống kê
-│   ├── checkin.html         # Trang điểm danh của đại biểu (mở từ QR)
-│   ├── users.html           # Quản lý người dùng + cấu hình trường Excel (admin)
+│   ├── index.html           # Đăng nhập (kèm quên mật khẩu) + danh sách phiên
+│   ├── session.html         # Chi tiết phiên: danh sách, QR, tích tay, thống kê
+│   ├── checkin.html         # Trang điểm danh/ghi danh của đại biểu (mở từ QR)
+│   ├── users.html           # Trang Quản trị: người dùng, trường Excel, QR mặc định, SMTP
+│   ├── reset.html           # Đặt lại mật khẩu từ link trong email
+│   ├── img/logo.svg         # Logo + favicon
 │   ├── css/style.css
 │   └── js/
 │       ├── api.js           # Hàm gọi API + tiện ích chung
-│       └── shell.js         # Footer, menu Giới thiệu/Hướng dẫn + modal (chèn vào mọi trang)
+│       └── shell.js         # Favicon, logo, footer, menu Giới thiệu/Hướng dẫn (chèn vào mọi trang)
 ├── Dockerfile
 ├── docker-compose.yml       # app + postgres cho localhost / private server
 ├── PLAN.md                  # Kế hoạch, thiết kế, checklist, nâng cấp

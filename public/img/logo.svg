@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Logo TBit SmartID: chip vi mạch xoay 45°, lõi kim loại, chữ TBit cyan, LED đỏ -->
+  <defs>
+    <linearGradient id="pcb" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4caf50"/>
+      <stop offset=".55" stop-color="#2e7d32"/>
+      <stop offset="1" stop-color="#1b5e20"/>
+    </linearGradient>
+    <radialGradient id="core" cx=".35" cy=".3" r="1">
+      <stop offset="0" stop-color="#9e9e9e"/>
+      <stop offset=".4" stop-color="#424242"/>
+      <stop offset="1" stop-color="#111111"/>
+    </radialGradient>
+    <linearGradient id="tbit" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#aef7ff"/>
+      <stop offset=".5" stop-color="#4dd0e1"/>
+      <stop offset="1" stop-color="#00acc1"/>
+    </linearGradient>
+    <radialGradient id="led" cx=".35" cy=".35" r="1">
+      <stop offset="0" stop-color="#ffab91"/>
+      <stop offset=".45" stop-color="#ff3d00"/>
+      <stop offset="1" stop-color="#b71c1c"/>
+    </radialGradient>
+  </defs>
+  <g transform="rotate(45 64 64)">
+    <!-- chân chip -->
+    <g fill="#c8c8c8" stroke="#8d6e00" stroke-width=".6">
+      <g id="pins">
+        <rect x="34" y="16" width="5" height="12" rx="1.5" fill="#ffd54f"/>
+        <rect x="43" y="16" width="5" height="12" rx="1.5"/>
+        <rect x="52" y="16" width="5" height="12" rx="1.5" fill="#ffd54f"/>
+        <rect x="61" y="16" width="5" height="12" rx="1.5"/>
+        <rect x="70" y="16" width="5" height="12" rx="1.5" fill="#ffd54f"/>
+        <rect x="79" y="16" width="5" height="12" rx="1.5"/>
+        <rect x="88" y="16" width="5" height="12" rx="1.5" fill="#ffd54f"/>
+      </g>
+      <use href="#pins" transform="rotate(90 64 64)"/>
+      <use href="#pins" transform="rotate(180 64 64)"/>
+      <use href="#pins" transform="rotate(270 64 64)"/>
+    </g>
+    <!-- đế PCB xanh -->
+    <rect x="24" y="24" width="80" height="80" rx="10" fill="url(#pcb)" stroke="#124116" stroke-width="2"/>
+    <!-- lõi kim loại đen -->
+    <rect x="38" y="38" width="52" height="52" rx="7" fill="url(#core)" stroke="#000" stroke-width="1.5"/>
+    <rect x="40.5" y="40.5" width="47" height="47" rx="5.5" fill="none" stroke="#6d6d6d" stroke-width="1" opacity=".6"/>
+  </g>
+  <!-- LED đỏ góc trên -->
+  <circle cx="88" cy="18" r="6" fill="url(#led)"/>
+  <circle cx="86" cy="16" r="1.8" fill="#ffe0d6" opacity=".9"/>
+  <!-- chữ TBit (giữ ngang) -->
+  <text x="64" y="76" text-anchor="middle" font-family="Verdana, Geneva, sans-serif" font-size="30"
+        font-weight="bold" fill="url(#tbit)" stroke="#00363d" stroke-width="1" paint-order="stroke">TBit</text>
+</svg>

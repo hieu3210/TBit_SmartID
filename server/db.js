@@ -77,6 +77,23 @@ ALTER TABLE attendees ADD COLUMN IF NOT EXISTS extra JSONB;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'list';
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS fields JSONB;
 ALTER TABLE attendees ALTER COLUMN cccd DROP NOT NULL;
+
+-- Hồ sơ người dùng (đặt lại mật khẩu, nhận email hệ thống)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+
+-- Tự kết thúc phiên (ends_at, giờ VN) và chu kỳ QR riêng (NULL = mặc định hệ thống, 0 = cố định)
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ends_at TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS qr_seconds INTEGER;
+
+-- Danh sách đại biểu lưu sẵn để dùng lại
+CREATE TABLE IF NOT EXISTS saved_lists (
+  id SERIAL PRIMARY KEY,
+  owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  data JSONB NOT NULL,
+  created_at TEXT NOT NULL
+);
 `;
 
 async function getSetting(key) {
