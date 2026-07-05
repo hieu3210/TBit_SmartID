@@ -23,22 +23,24 @@
     nav.className = 'topbar-menu';
     const langItems = Object.keys(LANG_META)
       .map((l) => `<button type="button" data-lang="${l}" class="${l === curLang ? 'active' : ''}">${LANG_META[l].flag} ${LANG_META[l].label}</button>`).join('');
+    // Thứ tự: Giới thiệu → Hướng dẫn → Ngôn ngữ → Sáng/Tối
     nav.innerHTML = `
-      <button class="link theme-toggle" type="button" id="btnTheme" title="${t('nav.theme', 'Chế độ sáng/tối')}" aria-label="${t('nav.theme', 'Chế độ sáng/tối')}"></button>
+      <button class="link" type="button" data-modal="aboutModal">${t('nav.about', 'Giới thiệu')}</button>
+      <button class="link" type="button" data-modal="guideModal">${t('nav.guide', 'Hướng dẫn')}</button>
       <div class="lang-switch">
         <button class="link lang-btn" id="langBtn" type="button">${LANG_META[curLang].flag} ${LANG_META[curLang].label} ▾</button>
         <div class="lang-menu hidden" id="langMenu">${langItems}</div>
       </div>
-      <button class="link" type="button" data-modal="aboutModal">${t('nav.about', 'Giới thiệu')}</button>
-      <button class="link" type="button" data-modal="guideModal">${t('nav.guide', 'Hướng dẫn')}</button>`;
+      <button class="link theme-toggle" type="button" id="btnTheme" title="${t('nav.theme', 'Chế độ sáng/tối')}" aria-label="${t('nav.theme', 'Chế độ sáng/tối')}"></button>`;
     const actions = topbar.querySelector('.actions');
 
-    // Gom menu + actions vào một khối để trượt ra off-canvas trên điện thoại
+    // Gom actions (lời chào/đăng xuất/Quản trị) + menu vào một khối để trượt off-canvas trên điện thoại.
+    // Thứ tự tổng: [actions] rồi [nav] → Xin chào(Đăng xuất) → Quản trị → Giới thiệu → Hướng dẫn → Ngôn ngữ → Sáng/Tối
     const right = document.createElement('div');
     right.className = 'topbar-right';
     if (actions) topbar.insertBefore(right, actions); else topbar.appendChild(right);
-    right.appendChild(nav);
     if (actions) right.appendChild(actions);
+    right.appendChild(nav);
 
     const toggle = document.createElement('button');
     toggle.className = 'nav-toggle';

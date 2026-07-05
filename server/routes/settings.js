@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware');
-const { getListFields, validateListFields, saveListFields, enabledColumns } = require('../lib/fields');
+const { getListFields, validateListFields, saveListFields, enabledColumns, fieldsWithLabels } = require('../lib/fields');
 const { systemQrSeconds, saveSystemQrSeconds, getSmtp, saveSmtp } = require('../lib/sysconfig');
 const { sendMail, emailLayout } = require('../lib/mailer');
 const { LANGS, DEFAULTS, getOverrides, saveOverrides } = require('../lib/i18n');
@@ -23,18 +23,20 @@ router.put('/i18n', requireAdmin, async (req, res, next) => {
 // Cấu hình trường danh sách: ai đăng nhập cũng xem được (để dựng cột xem trước / form)
 router.get('/list-fields', requireAuth, async (req, res, next) => {
   try {
+    const lang = req.query.lang === 'en' ? 'en' : 'vi';
     const fields = await getListFields();
-    res.json({ fields, columns: enabledColumns(fields) });
+    res.json({ fields: fieldsWithLabels(fields), columns: enabledColumns(fields, lang) });
   } catch (e) { next(e); }
 });
 
-// Chỉ admin được thay đổi trường mặc định / bắt buộc
+// Chỉ admin được thay đổi trường mặc định / bắt buộc / nhãn song ngữ
 router.put('/list-fields', requireAdmin, async (req, res, next) => {
   try {
+    const lang = req.query.lang === 'en' ? 'en' : 'vi';
     const { fields, error } = validateListFields((req.body || {}).fields);
     if (error) return res.status(400).json({ error });
     await saveListFields(fields);
-    res.json({ fields, columns: enabledColumns(fields) });
+    res.json({ fields: fieldsWithLabels(fields), columns: enabledColumns(fields, lang) });
   } catch (e) { next(e); }
 });
 

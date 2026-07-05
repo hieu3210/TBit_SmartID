@@ -43,12 +43,14 @@ function baseUrl(req) {
   return process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
 }
 
-// Tải template Excel theo các trường admin đã bật
+// Tải template Excel theo các trường admin đã bật, nhãn theo ngôn ngữ (?lang=vi|en)
 router.get('/template', async (req, res, next) => {
   try {
-    res.setHeader('Content-Disposition', 'attachment; filename="template_diem_danh.xlsx"');
+    const lang = req.query.lang === 'en' ? 'en' : 'vi';
+    const fname = lang === 'en' ? 'attendance_template.xlsx' : 'template_diem_danh.xlsx';
+    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buildTemplate(enabledColumns(await getListFields())));
+    res.send(buildTemplate(enabledColumns(await getListFields(), lang)));
   } catch (e) { next(e); }
 });
 
@@ -525,8 +527,9 @@ router.post('/:id/use-list', loadOwnedSession, async (req, res, next) => {
 router.get('/:id/export', loadOwnedSession, async (req, res, next) => {
   try {
     const s = req.attSession;
+    const lang = req.query.lang === 'en' ? 'en' : 'vi';
     const { rows: attendees } = await query('SELECT * FROM attendees WHERE session_id = $1 ORDER BY stt', [s.id]);
-    const buffer = buildExport(s, attendees, await statsFor(s.id), columnsForSession(s, await getListFields()));
+    const buffer = buildExport(s, attendees, await statsFor(s.id), columnsForSession(s, await getListFields(), lang));
     const safeName = s.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_');
     res.setHeader('Content-Disposition', `attachment; filename="ket_qua_${safeName || 'diem_danh'}.xlsx"`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

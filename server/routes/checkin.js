@@ -28,7 +28,8 @@ router.get('/api/checkin/:token/info', rateLimit(60), async (req, res, next) => 
     if (s.type === 'open') {
       out.fields = s.fields || DEFAULT_OPEN_FIELDS;
     } else {
-      out.checkin_fields = checkinFieldDefs(s, await getListFields());
+      const lang = req.query.lang === 'en' ? 'en' : 'vi';
+      out.checkin_fields = checkinFieldDefs(s, await getListFields(), lang);
       out.allow_open = !!s.allow_open;
       if (s.allow_open) out.open_fields = s.fields || DEFAULT_OPEN_FIELDS;
     }

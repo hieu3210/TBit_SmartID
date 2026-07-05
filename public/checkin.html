@@ -100,7 +100,7 @@ function renderForm() {
 
 async function boot() {
   try {
-    info = await api(`/api/checkin/${token}/info`);
+    info = await api(`/api/checkin/${token}/info?lang=${window.I18N_LANG || 'vi'}`);
     el('eventName').textContent = info.name;
     if (info.status !== 'open' && info.status !== 'supplement') {
       hide('formCard'); show('closedCard');

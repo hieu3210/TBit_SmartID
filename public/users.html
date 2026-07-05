@@ -11,7 +11,7 @@
 
 <div class="topbar">
   <a class="brand" href="/">TBit SmartID</a>
-  <div class="actions"><a href="/">← Danh sách phiên</a></div>
+  <div class="actions"><a href="/" data-i18n="nav.back">← Danh sách phiên</a></div>
 </div>
 
 <div class="container">
@@ -24,65 +24,68 @@
     <div id="sysAlert" class="alert hidden"></div>
     <div class="row" style="align-items:flex-end;">
       <div style="min-width:220px;">
-        <label>Chu kỳ đổi mã QR mặc định (giây)</label>
+        <label data-i18n="admin.sys.qr">Chu kỳ đổi mã QR mặc định (giây)</label>
         <input id="sysQrSeconds" type="number" min="5" max="300" style="margin-bottom:0;">
       </div>
-      <p class="muted" style="flex:1;min-width:200px;margin:0;">Áp dụng cho phiên không đặt chu kỳ riêng (5–300 giây).</p>
+      <p class="muted" style="flex:1;min-width:200px;margin:0;" data-i18n="admin.sys.qrHint">Áp dụng cho phiên không đặt chu kỳ riêng (5–300 giây).</p>
     </div>
     <h2 class="mt" style="font-size:16px;" data-i18n="admin.smtp.title">Máy chủ email (SMTP)</h2>
-    <p class="muted" style="margin-bottom:10px;">Dùng để gửi email đặt lại mật khẩu và thông báo kết thúc phiên. VD Gmail: <b>smtp.gmail.com</b>, cổng <b>587</b>, mật khẩu là <i>App Password</i>.</p>
+    <p class="muted" style="margin-bottom:10px;" data-i18n="admin.sys.smtpDesc">Dùng để gửi email đặt lại mật khẩu và thông báo kết thúc phiên. VD Gmail: smtp.gmail.com, cổng 587, mật khẩu là App Password.</p>
     <div class="row">
       <div style="flex:2;min-width:180px;">
-        <label>Máy chủ SMTP</label>
+        <label data-i18n="admin.smtp.host">Máy chủ SMTP</label>
         <input id="smtpHost" placeholder="smtp.gmail.com">
       </div>
       <div style="flex:1;min-width:90px;">
-        <label>Cổng</label>
+        <label data-i18n="admin.smtp.port">Cổng</label>
         <input id="smtpPort" type="number" placeholder="587">
       </div>
     </div>
     <div class="row">
       <div style="flex:1;min-width:180px;">
-        <label>Tài khoản</label>
+        <label data-i18n="admin.smtp.user">Tài khoản</label>
         <input id="smtpUser" placeholder="ban@gmail.com" autocomplete="off">
       </div>
       <div style="flex:1;min-width:180px;">
-        <label>Mật khẩu <span class="muted" id="smtpPassHint">(bỏ trống = giữ nguyên)</span></label>
+        <label><span data-i18n="admin.smtp.pass">Mật khẩu</span> <span class="muted" id="smtpPassHint"></span></label>
         <input id="smtpPass" type="password" autocomplete="new-password">
       </div>
     </div>
-    <label>Địa chỉ người gửi (From — bỏ trống dùng tài khoản)</label>
+    <label data-i18n="admin.smtp.from">Địa chỉ người gửi (From — bỏ trống dùng tài khoản)</label>
     <input id="smtpFrom" placeholder="TBit SmartID <ban@gmail.com>">
     <div class="row">
-      <button class="btn" id="btnSaveSys">💾 Lưu thiết lập</button>
+      <button class="btn" id="btnSaveSys" data-i18n="admin.smtp.save">💾 Lưu thiết lập</button>
       <div class="spacer"></div>
-      <input id="testEmailTo" placeholder="Email nhận thử" style="max-width:220px;margin-bottom:0;">
-      <button class="btn secondary" id="btnTestEmail">✉ Gửi email thử</button>
+      <input id="testEmailTo" data-i18n-ph="admin.users.testEmailPh" placeholder="Email nhận thử" style="max-width:220px;margin-bottom:0;">
+      <button class="btn secondary" id="btnTestEmail" data-i18n="admin.smtp.test">✉ Gửi email thử</button>
     </div>
   </div>
 
-  <!-- ===== Trường danh sách điểm danh ===== -->
+  <!-- ===== Trường danh sách điểm danh (song ngữ) ===== -->
   <div class="card">
     <h2 data-i18n="admin.fields.title">Trường thông tin danh sách điểm danh</h2>
-    <p class="muted" style="margin-bottom:10px;">
-      Chọn trường nào <b>có trong mẫu</b> (người dùng tải template về sẽ thấy) và trường nào
-      <b>bắt buộc nhập</b> khi chuẩn bị danh sách. Có thể thêm trường riêng (VD: Chức vụ, Mã cán bộ).
-      Cần bật ít nhất một trong hai trường định danh (Số CCCD / Số điện thoại).
+    <p class="muted" style="margin-bottom:10px;" data-i18n="admin.fields.desc">
+      Chọn trường nào có trong mẫu và trường nào bắt buộc nhập; có thể thêm trường riêng với tên tiếng Việt và tiếng Anh.
     </p>
     <div id="fieldsAlert" class="alert hidden"></div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Trường</th><th style="text-align:center;">Có trong mẫu</th><th style="text-align:center;">Bắt buộc</th><th></th></tr></thead>
+      <thead><tr>
+        <th data-i18n="admin.fields.nameVi">Tên (Tiếng Việt)</th>
+        <th data-i18n="admin.fields.nameEn">Tên (English)</th>
+        <th style="text-align:center;" data-i18n="admin.fields.colInTemplate">Có trong mẫu</th>
+        <th style="text-align:center;" data-i18n="admin.fields.colRequired">Bắt buộc</th>
+        <th></th>
+      </tr></thead>
       <tbody id="fieldRows"></tbody>
     </table></div>
     <form id="addFieldForm" class="row mt" style="align-items:flex-end;">
-      <div style="flex:1;min-width:180px;">
-        <input id="newField" placeholder="Thêm trường riêng — VD: Chức vụ" maxlength="40" style="margin-bottom:0;">
-      </div>
-      <button class="btn secondary" type="submit">＋ Thêm trường</button>
+      <input id="newFieldVi" data-i18n-ph="admin.fields.addViPh" placeholder="Tên trường (Tiếng Việt)" maxlength="40" style="flex:1;min-width:150px;margin-bottom:0;">
+      <input id="newFieldEn" data-i18n-ph="admin.fields.addEnPh" placeholder="Name (English)" maxlength="40" style="flex:1;min-width:150px;margin-bottom:0;">
+      <button class="btn secondary" type="submit" data-i18n="admin.fields.add">＋ Thêm trường</button>
     </form>
     <div class="row mt">
-      <button class="btn" id="btnSaveFields">💾 Lưu cấu hình trường</button>
-      <button class="btn secondary" type="button" id="btnFieldsDefault">↺ Về mặc định</button>
+      <button class="btn" id="btnSaveFields" data-i18n="admin.fields.save">💾 Lưu cấu hình trường</button>
+      <button class="btn secondary" type="button" id="btnFieldsDefault" data-i18n="admin.fields.default">↺ Về mặc định</button>
     </div>
   </div>
 
@@ -92,40 +95,40 @@
     <form id="addForm">
       <div class="row">
         <div style="flex:1;min-width:150px;">
-          <label>Họ và tên</label>
+          <label data-i18n="admin.users.fullName">Họ và tên</label>
           <input id="newFullName" required>
         </div>
         <div style="flex:1;min-width:180px;">
-          <label>Email</label>
+          <label data-i18n="admin.users.email">Email</label>
           <input id="newEmail" type="email" required>
         </div>
       </div>
       <div class="row" style="align-items:flex-end;">
         <div style="flex:1;min-width:130px;">
-          <label>Tên đăng nhập</label>
+          <label data-i18n="admin.users.username">Tên đăng nhập</label>
           <input id="newUsername" style="margin-bottom:0;" required>
         </div>
         <div style="flex:1;min-width:130px;">
-          <label>Mật khẩu ban đầu</label>
+          <label data-i18n="admin.users.initPass">Mật khẩu ban đầu</label>
           <input id="newPassword" type="text" minlength="6" style="margin-bottom:0;" required>
         </div>
         <div style="min-width:120px;">
-          <label>Vai trò</label>
+          <label data-i18n="admin.users.role">Vai trò</label>
           <select id="newRole" style="margin-bottom:0;">
-            <option value="user">Người dùng</option>
-            <option value="admin">Quản trị</option>
+            <option value="user" data-i18n="admin.users.roleUser">Người dùng</option>
+            <option value="admin" data-i18n="admin.users.roleAdmin">Quản trị</option>
           </select>
         </div>
-        <button class="btn" type="submit">＋ Thêm</button>
+        <button class="btn" type="submit" data-i18n="admin.users.add">＋ Thêm</button>
       </div>
     </form>
-    <p class="muted mt">Người dùng mới sẽ được yêu cầu đổi mật khẩu khi đăng nhập lần đầu. Email dùng để đặt lại mật khẩu và nhận thông báo hệ thống.</p>
+    <p class="muted mt" data-i18n="admin.users.note">Người dùng mới sẽ được yêu cầu đổi mật khẩu khi đăng nhập lần đầu.</p>
   </div>
 
   <div class="card">
     <h2 data-i18n="admin.users.listTitle">Danh sách người dùng</h2>
     <div class="table-wrap"><table>
-      <thead><tr><th>Tên đăng nhập</th><th>Họ và tên</th><th>Email</th><th>Vai trò</th><th></th></tr></thead>
+      <thead><tr><th data-i18n="admin.users.colUsername">Tên đăng nhập</th><th data-i18n="admin.users.fullName">Họ và tên</th><th data-i18n="admin.users.email">Email</th><th data-i18n="admin.users.role">Vai trò</th><th></th></tr></thead>
       <tbody id="userBody"></tbody>
     </table></div>
   </div>
@@ -135,7 +138,7 @@
     <h2 data-i18n="admin.i18n.title">Ngôn ngữ / Language</h2>
     <p class="muted" style="margin-bottom:10px;" data-i18n="admin.i18n.desc">Chỉnh nhãn giao diện cho từng ngôn ngữ. Để trống một ô sẽ dùng bản mặc định.</p>
     <div id="i18nAlert" class="alert hidden"></div>
-    <input id="i18nFilter" placeholder="Lọc theo khoá hoặc nội dung…" style="margin-bottom:10px;">
+    <input id="i18nFilter" data-i18n-ph="admin.i18n.filterPh" placeholder="Lọc theo khoá hoặc nội dung…" style="margin-bottom:10px;">
     <div class="table-wrap" style="max-height:420px;overflow:auto;"><table>
       <thead><tr><th style="min-width:120px;" data-i18n="admin.i18n.key">Khoá</th><th>🇻🇳 Tiếng Việt</th><th>🇬🇧 English</th></tr></thead>
       <tbody id="i18nRows"></tbody>
@@ -151,22 +154,22 @@
 <div class="modal-overlay hidden" id="editUserModal">
   <div class="modal" style="max-width:440px;">
     <div class="modal-hero">
-      <div><h2>Sửa người dùng</h2><p id="editUserSub"></p></div>
+      <div><h2 data-i18n="admin.users.editTitle">Sửa người dùng</h2><p id="editUserSub"></p></div>
       <button class="modal-close" type="button" id="btnEditClose" aria-label="Đóng">×</button>
     </div>
     <div class="modal-body">
       <div id="editAlert" class="alert hidden"></div>
       <form id="editForm">
-        <label>Họ và tên</label>
+        <label data-i18n="admin.users.fullName">Họ và tên</label>
         <input id="editFullName" required>
-        <label>Email</label>
+        <label data-i18n="admin.users.email">Email</label>
         <input id="editEmail" type="email" required>
-        <label>Vai trò</label>
+        <label data-i18n="admin.users.role">Vai trò</label>
         <select id="editRole">
-          <option value="user">Người dùng</option>
-          <option value="admin">Quản trị</option>
+          <option value="user" data-i18n="admin.users.roleUser">Người dùng</option>
+          <option value="admin" data-i18n="admin.users.roleAdmin">Quản trị</option>
         </select>
-        <button class="btn full" type="submit">Lưu thay đổi</button>
+        <button class="btn full" type="submit" data-i18n="admin.users.editSave">Lưu thay đổi</button>
       </form>
     </div>
   </div>
@@ -184,7 +187,7 @@ async function loadSystem() {
   el('smtpPort').value = cfg.smtp.port;
   el('smtpUser').value = cfg.smtp.user;
   el('smtpFrom').value = cfg.smtp.from;
-  el('smtpPassHint').textContent = cfg.smtp.has_pass ? '(đã lưu — bỏ trống để giữ nguyên)' : '';
+  el('smtpPassHint').textContent = cfg.smtp.has_pass ? t('admin.smtp.passSaved') : t('admin.smtp.passKeep');
 }
 
 el('btnSaveSys').addEventListener('click', async () => {
@@ -222,11 +225,11 @@ async function loadUsers() {
       <td><b>${esc(u.username)}</b></td>
       <td>${esc(u.full_name || '—')}</td>
       <td class="muted">${esc(u.email || '—')}</td>
-      <td>${u.role === 'admin' ? '<span class="badge closed">Quản trị</span>' : '<span class="badge draft">Người dùng</span>'}</td>
+      <td>${u.role === 'admin' ? `<span class="badge closed">${t('admin.users.roleAdmin')}</span>` : `<span class="badge draft">${t('admin.users.roleUser')}</span>`}</td>
       <td style="text-align:right;white-space:nowrap;">
-        <button class="btn secondary small" onclick="editUser(${u.id})">Sửa</button>
-        <button class="btn secondary small" onclick="resetPassword(${u.id}, '${esc(u.username)}')">Đặt lại mật khẩu</button>
-        <button class="btn danger small" onclick="removeUser(${u.id}, '${esc(u.username)}')">Xoá</button>
+        <button class="btn secondary small" onclick="editUser(${u.id})">${t('common.edit', 'Sửa')}</button>
+        <button class="btn secondary small" onclick="resetPassword(${u.id}, '${esc(u.username)}')">${t('admin.users.resetPw')}</button>
+        <button class="btn danger small" onclick="removeUser(${u.id}, '${esc(u.username)}')">${t('common.delete', 'Xoá')}</button>
       </td>
     </tr>`).join('');
 }
@@ -289,23 +292,26 @@ async function removeUser(id, username) {
   catch (e) { showAlert('alert', e.message); }
 }
 
-/* ---------- Cấu hình trường danh sách điểm danh ---------- */
-const CORE_KEYS = ['cccd', 'full_name', 'unit', 'phone', 'email'];
+/* ---------- Cấu hình trường danh sách điểm danh (song ngữ vi/en) ---------- */
 let listFields = [];
 
 function renderFields() {
   el('fieldRows').innerHTML = listFields.map((f, i) => {
-    const isCore = CORE_KEYS.includes(f.key);
-    const locked = false; // mọi trường đều có thể bật/tắt và đặt bắt buộc tuỳ ý
+    const isCore = f.kind === 'core';
+    const nameCells = isCore
+      ? `<td><b>${esc(f.label_vi)}</b></td><td>${esc(f.label_en)}</td>`
+      : `<td><input value="${esc(f.label_vi)}" maxlength="40" oninput="setLabel(${i},'label_vi',this.value)" style="margin:0;"></td>
+         <td><input value="${esc(f.label_en)}" maxlength="40" oninput="setLabel(${i},'label_en',this.value)" style="margin:0;"></td>`;
     return `<tr>
-      <td><b>${esc(f.label)}</b>${isCore ? '' : ' <span class="muted">(trường riêng)</span>'}</td>
-      <td style="text-align:center;"><input type="checkbox" ${f.enabled ? 'checked' : ''} ${locked ? 'disabled' : ''} onchange="setField(${i},'enabled',this.checked)"></td>
-      <td style="text-align:center;"><input type="checkbox" ${f.required ? 'checked' : ''} ${locked || !f.enabled ? 'disabled' : ''} onchange="setField(${i},'required',this.checked)"></td>
-      <td style="text-align:right;">${isCore ? '' : `<button class="btn danger small" onclick="removeField(${i})">Xoá</button>`}</td>
+      ${nameCells}
+      <td style="text-align:center;"><input type="checkbox" ${f.enabled ? 'checked' : ''} onchange="setField(${i},'enabled',this.checked)"></td>
+      <td style="text-align:center;"><input type="checkbox" ${f.required ? 'checked' : ''} ${!f.enabled ? 'disabled' : ''} onchange="setField(${i},'required',this.checked)"></td>
+      <td style="text-align:right;">${isCore ? '' : `<button class="btn danger small" onclick="removeField(${i})">${t('common.delete', 'Xoá')}</button>`}</td>
     </tr>`;
   }).join('');
 }
 
+function setLabel(i, prop, val) { listFields[i][prop] = val; } // không re-render để giữ con trỏ
 function setField(i, prop, val) {
   listFields[i][prop] = val;
   if (prop === 'enabled' && !val) listFields[i].required = false;
@@ -314,20 +320,21 @@ function setField(i, prop, val) {
 function removeField(i) { listFields.splice(i, 1); renderFields(); }
 
 async function loadFields() {
-  const cfg = await api('/api/settings/list-fields');
+  const cfg = await api(`/api/settings/list-fields?lang=${window.I18N_LANG || 'vi'}`);
   listFields = cfg.fields;
   renderFields();
 }
 
 el('addFieldForm').addEventListener('submit', (ev) => {
   ev.preventDefault();
-  const label = el('newField').value.trim();
-  if (!label) return;
-  if (listFields.some((f) => f.label.toLowerCase() === label.toLowerCase())) {
+  const vi = el('newFieldVi').value.trim();
+  const en = el('newFieldEn').value.trim() || vi;
+  if (!vi) return;
+  if (listFields.some((f) => (f.label_vi || '').toLowerCase() === vi.toLowerCase())) {
     return showAlert('fieldsAlert', 'Trường này đã có trong danh sách');
   }
-  listFields.push({ key: label, label, enabled: true, required: false });
-  el('newField').value = '';
+  listFields.push({ key: '', kind: 'custom', label_vi: vi, label_en: en, enabled: true, required: false });
+  el('newFieldVi').value = ''; el('newFieldEn').value = '';
   renderFields();
 });
 
@@ -343,15 +350,18 @@ el('btnSaveFields').addEventListener('click', async () => {
 
 el('btnFieldsDefault').addEventListener('click', async () => {
   if (!confirm('Đặt lại về cấu hình trường mặc định?')) return;
-  listFields = [
-    { key: 'cccd', label: 'Số CCCD', enabled: true, required: true },
-    { key: 'full_name', label: 'Họ và tên', enabled: true, required: false },
-    { key: 'unit', label: 'Đơn vị', enabled: true, required: false },
-    { key: 'phone', label: 'Số điện thoại', enabled: true, required: true },
-    { key: 'email', label: 'Email', enabled: true, required: false },
-  ];
-  renderFields();
-  el('btnSaveFields').click();
+  try {
+    const cfg = await api('/api/settings/list-fields', { method: 'PUT', body: { fields: [
+      { key: 'cccd', enabled: true, required: true },
+      { key: 'full_name', enabled: true, required: false },
+      { key: 'unit', enabled: true, required: false },
+      { key: 'phone', enabled: true, required: true },
+      { key: 'email', enabled: true, required: false },
+    ] } });
+    listFields = cfg.fields;
+    renderFields();
+    showAlert('fieldsAlert', 'Đã lưu cấu hình trường', 'success');
+  } catch (e) { showAlert('fieldsAlert', e.message); }
 });
 
 /* ---------- Dịch ngôn ngữ (i18n) ---------- */

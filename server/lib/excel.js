@@ -5,10 +5,10 @@ const CORE_KEYS = ['cccd', 'full_name', 'unit', 'phone', 'email'];
 
 // Header nhận diện cột lõi khi đọc file (không phân biệt hoa thường)
 const HEADER_MATCH = {
-  cccd: (h) => h.includes('cccd') || h.includes('căn cước') || h.includes('cmnd') || h.includes('cmt'),
-  full_name: (h) => h.startsWith('họ') || h.includes('họ tên') || h === 'tên',
-  unit: (h) => h.includes('đơn vị') || h.includes('cơ quan'),
-  phone: (h) => h.includes('điện thoại') || h === 'sđt' || h.includes('phone'),
+  cccd: (h) => h.includes('cccd') || h.includes('căn cước') || h.includes('cmnd') || h.includes('cmt') || h.includes('id number') || h.includes('identity'),
+  full_name: (h) => h.startsWith('họ') || h.includes('họ tên') || h === 'tên' || h.includes('full name') || h === 'name',
+  unit: (h) => h.includes('đơn vị') || h.includes('cơ quan') || h === 'unit' || h.includes('organization'),
+  phone: (h) => h.includes('điện thoại') || h === 'sđt' || h.includes('phone') || h.includes('mobile'),
   email: (h) => h.includes('email') || h.includes('thư điện tử'),
 };
 
@@ -78,7 +78,11 @@ function parseAttendees(buffer, columns = []) {
   const colIdx = columns.map((c) => {
     let idx = -1;
     if (c.kind === 'core' && HEADER_MATCH[c.key]) idx = header.findIndex((h) => HEADER_MATCH[c.key](h));
-    else idx = header.findIndex((h) => h === c.label.toLowerCase());
+    else {
+      // Trường custom: khớp theo nhãn tiếng Việt hoặc tiếng Anh
+      const names = (c.matchNames && c.matchNames.length) ? c.matchNames : [String(c.label || '').toLowerCase()];
+      idx = header.findIndex((h) => names.includes(h));
+    }
     return { ...c, idx };
   });
 

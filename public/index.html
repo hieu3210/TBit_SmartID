@@ -12,9 +12,8 @@
 <div class="topbar">
   <a class="brand" href="/">📋 TBit SmartID</a>
   <div class="actions" id="topbarActions">
+    <span class="greet hidden" id="greetWrap"><span id="whoami"></span> (<button class="link" id="btnLogout" data-i18n="nav.logout">Đăng xuất</button>)</span>
     <a href="/users.html" id="linkUsers" class="hidden" data-i18n="nav.admin">Quản trị</a>
-    <span id="whoami" class="hidden"></span>
-    <button class="link hidden" id="btnLogout" data-i18n="nav.logout">Đăng xuất</button>
     <button class="btn small hidden" id="btnOpenLogin" data-i18n="nav.login">Đăng nhập</button>
   </div>
 </div>
@@ -131,7 +130,7 @@
     <div class="row" style="margin-bottom:14px;">
       <h2 style="font-size:20px;" data-i18n="sessions.title">Phiên điểm danh</h2>
       <div class="spacer"></div>
-      <a class="btn secondary small" href="/api/sessions/template" data-i18n="sessions.template">⬇ Tải template Excel</a>
+      <a class="btn secondary small" id="tplLink" href="/api/sessions/template" data-i18n="sessions.template">⬇ Tải template Excel</a>
       <button class="btn small" id="btnNewSession" data-i18n="sessions.new">＋ Tạo phiên mới</button>
     </div>
     <div id="newSessionForm" class="card hidden">
@@ -235,8 +234,7 @@ function showLanding() {
   hide('changePassView'); hide('sessionsView');
   el('btnOpenLogin').classList.remove('hidden');
   el('linkUsers').classList.add('hidden');
-  el('whoami').classList.add('hidden');
-  el('btnLogout').classList.add('hidden');
+  el('greetWrap').classList.add('hidden');
 }
 
 function openLogin() { show('loginModal'); setTimeout(() => el('username').focus(), 50); }
@@ -250,9 +248,8 @@ el('loginModal').querySelector('[data-close]').addEventListener('click', closeLo
 function afterLogin() {
   hide('landingView'); closeLogin();
   el('btnOpenLogin').classList.add('hidden');
-  el('whoami').classList.remove('hidden');
-  el('btnLogout').classList.remove('hidden');
-  el('whoami').textContent = me.full_name || me.username;
+  el('greetWrap').classList.remove('hidden');
+  el('whoami').textContent = `${t('nav.hello', 'Xin chào')} ${me.full_name || me.username}`;
   if (me.role === 'admin') el('linkUsers').classList.remove('hidden');
   if (me.must_change_password) { show('changePassView'); hide('sessionsView'); return; }
   hide('changePassView');
@@ -308,9 +305,11 @@ function onTypeChange() {
 }
 sessTypeInputs().forEach((r) => r.addEventListener('change', onTypeChange));
 
+el('tplLink').href = `/api/sessions/template?lang=${window.I18N_LANG || 'vi'}`;
+
 async function loadCheckinFieldOptions() {
   try {
-    const cfg = await api('/api/settings/list-fields');
+    const cfg = await api(`/api/settings/list-fields?lang=${window.I18N_LANG || 'vi'}`);
     const hasPhone = cfg.columns.some((c) => c.key === 'phone');
     el('checkinFieldsBox').innerHTML = cfg.columns.map((c) => {
       // Mặc định chỉ cần Số điện thoại (nếu không có SĐT thì Số CCCD)

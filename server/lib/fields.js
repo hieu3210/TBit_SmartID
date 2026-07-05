@@ -10,57 +10,79 @@ const MAX_LABEL_LENGTH = 40;
    ============================================================ */
 
 // Trường lõi — lưu vào cột riêng của attendees. Trường khác (custom) lưu trong JSONB extra.
+// Mỗi trường có nhãn song ngữ vi/en.
 const LIST_CORE = [
-  { key: 'cccd', label: 'Số CCCD' },
-  { key: 'full_name', label: 'Họ và tên' },
-  { key: 'unit', label: 'Đơn vị' },
-  { key: 'phone', label: 'Số điện thoại' },
-  { key: 'email', label: 'Email' },
+  { key: 'cccd', vi: 'Số CCCD', en: 'ID number' },
+  { key: 'full_name', vi: 'Họ và tên', en: 'Full name' },
+  { key: 'unit', vi: 'Đơn vị', en: 'Unit' },
+  { key: 'phone', vi: 'Số điện thoại', en: 'Phone' },
+  { key: 'email', vi: 'Email', en: 'Email' },
 ];
 const CORE_KEYS = LIST_CORE.map((f) => f.key);
-const CORE_LABEL = new Map(LIST_CORE.map((f) => [f.key, f.label]));
+const CORE_LABELS = new Map(LIST_CORE.map((f) => [f.key, { vi: f.vi, en: f.en }]));
 
-// Nhận diện cột theo tiêu đề (không phân biệt hoa thường) khi đọc file upload
+// Nhận diện cột lõi theo tiêu đề (không phân biệt hoa thường) khi đọc file upload
 const HEADER_MATCH = {
-  cccd: (h) => h.includes('cccd') || h.includes('căn cước') || h.includes('cmnd') || h.includes('cmt'),
-  full_name: (h) => h.startsWith('họ') || h.includes('họ tên') || h === 'tên',
-  unit: (h) => h.includes('đơn vị') || h.includes('cơ quan'),
-  phone: (h) => h.includes('điện thoại') || h === 'sđt' || h.includes('phone'),
+  cccd: (h) => h.includes('cccd') || h.includes('căn cước') || h.includes('cmnd') || h.includes('cmt') || h.includes('id number') || h.includes('identity'),
+  full_name: (h) => h.startsWith('họ') || h.includes('họ tên') || h === 'tên' || h.includes('full name') || h === 'name',
+  unit: (h) => h.includes('đơn vị') || h.includes('cơ quan') || h === 'unit' || h.includes('organization'),
+  phone: (h) => h.includes('điện thoại') || h === 'sđt' || h.includes('phone') || h.includes('mobile'),
   email: (h) => h.includes('email') || h.includes('thư điện tử'),
 };
 
 const DEFAULT_LIST_FIELDS = [
-  { key: 'cccd', label: 'Số CCCD', enabled: true, required: true },
-  { key: 'full_name', label: 'Họ và tên', enabled: true, required: false },
-  { key: 'unit', label: 'Đơn vị', enabled: true, required: false },
-  { key: 'phone', label: 'Số điện thoại', enabled: true, required: true },
-  { key: 'email', label: 'Email', enabled: true, required: false },
+  { key: 'cccd', enabled: true, required: true },
+  { key: 'full_name', enabled: true, required: false },
+  { key: 'unit', enabled: true, required: false },
+  { key: 'phone', enabled: true, required: true },
+  { key: 'email', enabled: true, required: false },
 ];
 
 function cloneDefault() {
   return DEFAULT_LIST_FIELDS.map((f) => ({ ...f }));
 }
 
-// Đưa cấu hình về dạng hợp lệ, đủ trường lõi, full_name luôn bật+bắt buộc, ≥1 định danh
+// Nhãn của một trường theo ngôn ngữ
+function labelOf(f, lang) {
+  if (CORE_LABELS.has(f.key)) return CORE_LABELS.get(f.key)[lang === 'en' ? 'en' : 'vi'];
+  const vi = f.label_vi || f.label || f.key;
+  const en = f.label_en || f.label_vi || f.label || f.key;
+  return lang === 'en' ? en : vi;
+}
+
+// Sinh khoá ổn định (không dấu) cho trường custom từ nhãn tiếng Việt
+function slugKey(label, taken) {
+  let base = String(label || 'field').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/đ/gi, 'd').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').toLowerCase();
+  if (!base) base = 'field';
+  let key = base; let n = 1;
+  while (taken.has(key) || CORE_KEYS.includes(key)) key = `${base}_${++n}`;
+  taken.add(key);
+  return key;
+}
+
+// Chuẩn hoá cấu hình: đủ trường lõi, ≥1 định danh, custom có nhãn vi/en + khoá ổn định
 function normalizeListFields(list) {
   const byKey = new Map();
   const custom = [];
+  const takenKeys = new Set(CORE_KEYS);
   (Array.isArray(list) ? list : []).forEach((f) => {
-    if (!f || !f.key) return;
-    const key = String(f.key).trim();
-    const entry = {
-      key,
-      label: CORE_LABEL.get(key) || String(f.label || key).trim().slice(0, MAX_LABEL_LENGTH),
-      enabled: f.enabled !== false,
-      required: !!f.required,
-    };
-    if (CORE_KEYS.includes(key)) byKey.set(key, entry);
-    else if (entry.label) custom.push(entry);
+    if (!f) return;
+    const key = String(f.key || '').trim();
+    if (key && CORE_KEYS.includes(key)) {
+      byKey.set(key, { key, enabled: f.enabled !== false, required: !!f.required });
+      return;
+    }
+    // Trường custom (có thể chưa có khoá — sẽ sinh khoá ổn định từ nhãn tiếng Việt)
+    const labelVi = String(f.label_vi || f.label || key).trim().slice(0, MAX_LABEL_LENGTH);
+    const labelEn = String(f.label_en || f.label_vi || f.label || key).trim().slice(0, MAX_LABEL_LENGTH);
+    if (!labelVi) return;
+    let k = key;
+    if (!k || takenKeys.has(k)) k = slugKey(labelVi, takenKeys); else takenKeys.add(k);
+    custom.push({ key: k, enabled: f.enabled !== false, required: !!f.required, label_vi: labelVi, label_en: labelEn });
   });
-  // Trường lõi thiếu → bổ sung theo mặc định
   const result = LIST_CORE.map((c) => byKey.get(c.key)
-    || { key: c.key, label: c.label, enabled: true, required: c.key === 'cccd' || c.key === 'phone' });
-  // Cần ít nhất 1 định danh (CCCD hoặc SĐT) để tìm người trong danh sách
+    || { key: c.key, enabled: true, required: c.key === 'cccd' || c.key === 'phone' });
   if (!result.find((f) => (f.key === 'cccd' || f.key === 'phone') && f.enabled)) {
     result.find((f) => f.key === 'cccd').enabled = true;
   }
@@ -80,7 +102,7 @@ async function getListFields() {
       return normalizeListFields([
         ...cloneDefault(),
         ...extra.filter((s) => typeof s === 'string' && s.trim())
-          .map((label) => ({ key: label.trim(), label: label.trim(), enabled: true, required: false })),
+          .map((label) => ({ key: label.trim(), label_vi: label.trim(), label_en: label.trim(), enabled: true, required: false })),
       ]);
     }
   } catch (e) { /* bỏ qua */ }
@@ -89,22 +111,22 @@ async function getListFields() {
 
 function validateListFields(input) {
   if (!Array.isArray(input)) return { error: 'Dữ liệu không hợp lệ' };
-  // Cần ≥1 định danh (CCCD hoặc SĐT) bật để còn tìm người trong danh sách
   const isEnabled = (key) => { const it = input.find((f) => f && f.key === key); return !it || it.enabled !== false; };
   if (!isEnabled('cccd') && !isEnabled('phone')) {
     return { error: 'Phải bật ít nhất một trong hai trường định danh: Số CCCD hoặc Số điện thoại' };
   }
   const seen = new Set();
-  const coreLabelsLower = new Set([...CORE_LABEL.values()].map((l) => l.toLowerCase()));
+  const coreLabelsLower = new Set();
+  CORE_LABELS.forEach((v) => { coreLabelsLower.add(v.vi.toLowerCase()); coreLabelsLower.add(v.en.toLowerCase()); });
   let customCount = 0;
   for (const item of input) {
     const key = String((item && item.key) || '').trim();
     if (CORE_KEYS.includes(key)) continue;
-    const label = String((item && (item.label || item.key)) || '').trim().replace(/\s+/g, ' ');
-    if (!label) continue;
-    if (label.length > MAX_LABEL_LENGTH) return { error: `Tên trường "${label.slice(0, 20)}…" quá dài (tối đa ${MAX_LABEL_LENGTH} ký tự)` };
-    const lower = label.toLowerCase();
-    if (coreLabelsLower.has(lower) || seen.has(lower)) return { error: `Trường "${label}" bị trùng` };
+    const labelVi = String((item && (item.label_vi || item.label || item.key)) || '').trim().replace(/\s+/g, ' ');
+    if (!labelVi) continue;
+    if (labelVi.length > MAX_LABEL_LENGTH) return { error: `Tên trường "${labelVi.slice(0, 20)}…" quá dài (tối đa ${MAX_LABEL_LENGTH} ký tự)` };
+    const lower = labelVi.toLowerCase();
+    if (coreLabelsLower.has(lower) || seen.has(lower)) return { error: `Trường "${labelVi}" bị trùng` };
     seen.add(lower);
     customCount += 1;
   }
@@ -116,11 +138,26 @@ async function saveListFields(fields) {
   await setSetting('list_fields', JSON.stringify(fields));
 }
 
-// Các cột đang bật (đúng thứ tự) — dùng cho template, xem trước, xuất Excel
-function enabledColumns(listFields) {
-  return listFields.filter((f) => f.enabled).map((f) => ({
-    key: f.key, label: f.label, required: !!f.required,
+// Các cột đang bật (đúng thứ tự) — nhãn theo ngôn ngữ; matchNames để đọc file (custom)
+function enabledColumns(listFields, lang = 'vi') {
+  return listFields.filter((f) => f.enabled).map((f) => {
+    const kind = CORE_KEYS.includes(f.key) ? 'core' : 'custom';
+    return {
+      key: f.key, label: labelOf(f, lang), required: !!f.required, kind,
+      matchNames: kind === 'custom' ? [f.label_vi, f.label_en].filter(Boolean).map((s) => s.toLowerCase()) : null,
+    };
+  });
+}
+
+// Cấu hình đầy đủ (kèm nhãn vi/en) cho trình sửa của admin
+function fieldsWithLabels(listFields) {
+  return listFields.map((f) => ({
+    key: f.key,
+    enabled: !!f.enabled,
+    required: !!f.required,
     kind: CORE_KEYS.includes(f.key) ? 'core' : 'custom',
+    label_vi: labelOf(f, 'vi'),
+    label_en: labelOf(f, 'en'),
   }));
 }
 
@@ -146,12 +183,12 @@ function validateCheckinFields(input, listFields) {
   return { fields: uniq };
 }
 
-// Định nghĩa đầy đủ (key, label) của các trường điểm danh theo cấu hình phiên
-function checkinFieldDefs(session, listFields) {
+// Định nghĩa đầy đủ (key, label) của các trường điểm danh theo cấu hình phiên + ngôn ngữ
+function checkinFieldDefs(session, listFields, lang = 'vi') {
   const keys = (session.checkin_fields && session.checkin_fields.length)
     ? session.checkin_fields : defaultCheckinFields(listFields);
-  const labelOf = new Map(enabledColumns(listFields).map((c) => [c.key, c.label]));
-  return keys.filter((k) => labelOf.has(k)).map((k) => ({ key: k, label: labelOf.get(k) }));
+  const byKey = new Map(enabledColumns(listFields, lang).map((c) => [c.key, c.label]));
+  return keys.filter((k) => byKey.has(k)).map((k) => ({ key: k, label: byKey.get(k) }));
 }
 
 /* ============================================================
@@ -206,17 +243,17 @@ function validateOpenFields(input) {
 }
 
 /* ===== Cột dữ liệu của một phiên (dùng cho xuất Excel/email tổng hợp) ===== */
-function columnsForSession(session, listFields) {
+function columnsForSession(session, listFields, lang = 'vi') {
   if (session.type === 'open') {
     const f = (session.fields && session.fields.length) ? session.fields : DEFAULT_OPEN_FIELDS;
     return f.map((x) => ({ key: x.key, label: x.label }));
   }
-  return enabledColumns(listFields).map((c) => ({ key: c.key, label: c.label }));
+  return enabledColumns(listFields, lang).map((c) => ({ key: c.key, label: c.label }));
 }
 
 module.exports = {
   CORE_KEYS, LIST_CORE, HEADER_MATCH,
-  getListFields, saveListFields, validateListFields, enabledColumns,
+  getListFields, saveListFields, validateListFields, enabledColumns, fieldsWithLabels,
   defaultCheckinFields, validateCheckinFields, checkinFieldDefs,
   OPEN_CORE_FIELDS, DEFAULT_OPEN_FIELDS, validateOpenFields,
   columnsForSession,

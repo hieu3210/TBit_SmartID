@@ -11,7 +11,7 @@
 
 <div class="topbar">
   <a class="brand" href="/">📋 TBit SmartID</a>
-  <div class="actions"><a href="/">← Danh sách phiên</a></div>
+  <div class="actions"><a href="/" data-i18n="nav.back">← Danh sách phiên</a></div>
 </div>
 
 <div class="container">
@@ -32,7 +32,7 @@
     <div class="card">
       <h2>1. Chuẩn bị danh sách</h2>
       <p class="muted" style="margin-bottom:12px;">
-        Tải <a href="/api/sessions/template">template Excel</a>, điền danh sách rồi kéo-thả file vào ô dưới.
+        Tải <a id="tplLink2" href="/api/sessions/template">template Excel</a>, điền danh sách rồi kéo-thả file vào ô dưới.
         Cột CCCD và Số điện thoại cần để dạng <b>Text</b> để không mất số 0 đầu.
       </p>
       <div class="dropzone" id="dropzone">
@@ -264,7 +264,7 @@ async function load() {
   } else {
     show('closedView'); show('btnDelete');
     renderStats(sess.stats);
-    el('btnExport').href = `/api/sessions/${sessionId}/export`;
+    el('btnExport').href = `/api/sessions/${sessionId}/export?lang=${LANG}`;
   }
 }
 
@@ -314,8 +314,10 @@ function cellOf(a, key) {
 // Tên hiển thị khi Họ và tên có thể để trống
 function nameOf(a) { return a.full_name || a.phone || a.cccd || '(không tên)'; }
 
+const LANG = window.I18N_LANG || 'vi';
+if (el('tplLink2')) el('tplLink2').href = `/api/sessions/template?lang=${LANG}`;
 async function loadListColumns() {
-  const cfg = await api('/api/settings/list-fields');
+  const cfg = await api(`/api/settings/list-fields?lang=${LANG}`);
   listColumns = cfg.columns;
   customCols = cfg.columns.filter((c) => c.kind === 'custom');
 }
