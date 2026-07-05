@@ -68,21 +68,7 @@
       Chọn trường nào có trong mẫu và trường nào bắt buộc nhập; có thể thêm trường riêng với tên tiếng Việt và tiếng Anh.
     </p>
     <div id="fieldsAlert" class="alert hidden"></div>
-    <div class="table-wrap"><table>
-      <thead><tr>
-        <th data-i18n="admin.fields.nameVi">Tên (Tiếng Việt)</th>
-        <th data-i18n="admin.fields.nameEn">Tên (English)</th>
-        <th style="text-align:center;" data-i18n="admin.fields.colInTemplate">Có trong mẫu</th>
-        <th style="text-align:center;" data-i18n="admin.fields.colRequired">Bắt buộc</th>
-        <th></th>
-      </tr></thead>
-      <tbody id="fieldRows"></tbody>
-    </table></div>
-    <form id="addFieldForm" class="row mt" style="align-items:flex-end;">
-      <input id="newFieldVi" data-i18n-ph="admin.fields.addViPh" placeholder="Tên trường (Tiếng Việt)" maxlength="40" style="flex:1;min-width:150px;margin-bottom:0;">
-      <input id="newFieldEn" data-i18n-ph="admin.fields.addEnPh" placeholder="Name (English)" maxlength="40" style="flex:1;min-width:150px;margin-bottom:0;">
-      <button class="btn secondary" type="submit" data-i18n="admin.fields.add">＋ Thêm trường</button>
-    </form>
+    <div id="fieldCfgBox"></div>
     <div class="row mt">
       <button class="btn" id="btnSaveFields" data-i18n="admin.fields.save">💾 Lưu cấu hình trường</button>
       <button class="btn secondary" type="button" id="btnFieldsDefault" data-i18n="admin.fields.default">↺ Về mặc định</button>
@@ -177,6 +163,7 @@
 
 <script src="/js/i18n.js"></script>
 <script src="/js/api.js"></script>
+<script src="/js/fieldconfig.js"></script>
 <script src="/js/shell.js"></script>
 <script>
 /* ---------- Thiết lập hệ thống ---------- */
@@ -292,58 +279,18 @@ async function removeUser(id, username) {
   catch (e) { showAlert('alert', e.message); }
 }
 
-/* ---------- Cấu hình trường danh sách điểm danh (song ngữ vi/en) ---------- */
-let listFields = [];
-
-function renderFields() {
-  el('fieldRows').innerHTML = listFields.map((f, i) => {
-    const isCore = f.kind === 'core';
-    const nameCells = isCore
-      ? `<td><b>${esc(f.label_vi)}</b></td><td>${esc(f.label_en)}</td>`
-      : `<td><input value="${esc(f.label_vi)}" maxlength="40" oninput="setLabel(${i},'label_vi',this.value)" style="margin:0;"></td>
-         <td><input value="${esc(f.label_en)}" maxlength="40" oninput="setLabel(${i},'label_en',this.value)" style="margin:0;"></td>`;
-    return `<tr>
-      ${nameCells}
-      <td style="text-align:center;"><input type="checkbox" ${f.enabled ? 'checked' : ''} onchange="setField(${i},'enabled',this.checked)"></td>
-      <td style="text-align:center;"><input type="checkbox" ${f.required ? 'checked' : ''} ${!f.enabled ? 'disabled' : ''} onchange="setField(${i},'required',this.checked)"></td>
-      <td style="text-align:right;">${isCore ? '' : `<button class="btn danger small" onclick="removeField(${i})">${t('common.delete', 'Xoá')}</button>`}</td>
-    </tr>`;
-  }).join('');
-}
-
-function setLabel(i, prop, val) { listFields[i][prop] = val; } // không re-render để giữ con trỏ
-function setField(i, prop, val) {
-  listFields[i][prop] = val;
-  if (prop === 'enabled' && !val) listFields[i].required = false;
-  renderFields();
-}
-function removeField(i) { listFields.splice(i, 1); renderFields(); }
+/* ---------- Cấu hình trường mặc định hệ thống (song ngữ, thêm/sửa/xoá mọi trường) ---------- */
+let fieldCfg = null;
 
 async function loadFields() {
   const cfg = await api(`/api/settings/list-fields?lang=${window.I18N_LANG || 'vi'}`);
-  listFields = cfg.fields;
-  renderFields();
+  fieldCfg = createFieldConfigurator(el('fieldCfgBox'), cfg.fields, { lang: window.I18N_LANG || 'vi' });
 }
-
-el('addFieldForm').addEventListener('submit', (ev) => {
-  ev.preventDefault();
-  const vi = el('newFieldVi').value.trim();
-  const en = el('newFieldEn').value.trim() || vi;
-  if (!vi) return;
-  if (listFields.some((f) => (f.label_vi || '').toLowerCase() === vi.toLowerCase())) {
-    return showAlert('fieldsAlert', 'Trường này đã có trong danh sách');
-  }
-  listFields.push({ key: '', kind: 'custom', label_vi: vi, label_en: en, enabled: true, required: false });
-  el('newFieldVi').value = ''; el('newFieldEn').value = '';
-  renderFields();
-});
 
 el('btnSaveFields').addEventListener('click', async () => {
   clearAlert('fieldsAlert');
   try {
-    const cfg = await api('/api/settings/list-fields', { method: 'PUT', body: { fields: listFields } });
-    listFields = cfg.fields;
-    renderFields();
+    await api('/api/settings/list-fields', { method: 'PUT', body: { fields: fieldCfg.get() } });
     showAlert('fieldsAlert', 'Đã lưu cấu hình trường', 'success');
   } catch (e) { showAlert('fieldsAlert', e.message); }
 });
@@ -351,15 +298,14 @@ el('btnSaveFields').addEventListener('click', async () => {
 el('btnFieldsDefault').addEventListener('click', async () => {
   if (!confirm('Đặt lại về cấu hình trường mặc định?')) return;
   try {
-    const cfg = await api('/api/settings/list-fields', { method: 'PUT', body: { fields: [
+    await api('/api/settings/list-fields', { method: 'PUT', body: { fields: [
       { key: 'cccd', enabled: true, required: true },
       { key: 'full_name', enabled: true, required: false },
       { key: 'unit', enabled: true, required: false },
       { key: 'phone', enabled: true, required: true },
       { key: 'email', enabled: true, required: false },
     ] } });
-    listFields = cfg.fields;
-    renderFields();
+    await loadFields();
     showAlert('fieldsAlert', 'Đã lưu cấu hình trường', 'success');
   } catch (e) { showAlert('fieldsAlert', e.message); }
 });

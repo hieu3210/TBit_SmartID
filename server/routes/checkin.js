@@ -4,7 +4,7 @@ const { query, nowVN } = require('../db');
 const { rateLimit } = require('../middleware');
 const { verifyCode } = require('../lib/qrtoken');
 const { normalizeCccd, normalizePhone, isValidCccd, isValidPhone } = require('../lib/normalize');
-const { DEFAULT_OPEN_FIELDS, getListFields, checkinFieldDefs } = require('../lib/fields');
+const { getListFields, checkinFieldDefs, sessionFieldConfig, formFields } = require('../lib/fields');
 const { qrSecondsFor } = require('../lib/sysconfig');
 const { maybeAutoClose } = require('../lib/autoclose');
 
@@ -24,14 +24,15 @@ router.get('/api/checkin/:token/info', rateLimit(60), async (req, res, next) => 
   try {
     const s = await getSessionByToken(req.params.token);
     if (!s) return res.status(404).json({ error: 'Không tìm thấy phiên điểm danh' });
+    const lang = req.query.lang === 'en' ? 'en' : 'vi';
+    const global = await getListFields();
     const out = { name: s.name, status: s.status, type: s.type };
     if (s.type === 'open') {
-      out.fields = s.fields || DEFAULT_OPEN_FIELDS;
+      out.fields = formFields(sessionFieldConfig(s, global), lang);
     } else {
-      const lang = req.query.lang === 'en' ? 'en' : 'vi';
-      out.checkin_fields = checkinFieldDefs(s, await getListFields(), lang);
+      out.checkin_fields = checkinFieldDefs(s, global, lang);
       out.allow_open = !!s.allow_open;
-      if (s.allow_open) out.open_fields = s.fields || DEFAULT_OPEN_FIELDS;
+      if (s.allow_open) out.open_fields = formFields(sessionFieldConfig(s, global), lang);
     }
     res.json(out);
   } catch (e) { next(e); }
@@ -72,7 +73,7 @@ function successPayload(fullName, unit, checkedInAt, flag, verb) {
 // self = true khi là walk-in trên phiên danh sách (đánh dấu ghi danh thêm).
 async function openCheckin(s, req, res, { self = false } = {}) {
   const values = (req.body || {}).values || {};
-  const fields = s.fields || DEFAULT_OPEN_FIELDS;
+  const fields = formFields(sessionFieldConfig(s, await getListFields()));
   const core = { full_name: null, cccd: null, phone: null, unit: null, email: null };
   const extra = {};
 
@@ -88,7 +89,7 @@ async function openCheckin(s, req, res, { self = false } = {}) {
     if (f.key === 'phone' && !isValidPhone(v)) return res.status(400).json({ error: 'Số điện thoại không hợp lệ' });
     v = v.slice(0, 200);
     if (f.key in core) core[f.key] = v;
-    else extra[f.label] = v;
+    else extra[f.key] = v; // trường custom lưu theo khoá ổn định
   }
 
   // Đã có trong danh sách (theo CCCD/SĐT)? Nếu chưa điểm danh thì đánh dấu có mặt, tránh trùng.

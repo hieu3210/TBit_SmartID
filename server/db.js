@@ -104,6 +104,8 @@ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS qr_seconds INTEGER;
 -- Phiên theo danh sách: trường bắt buộc nhập để điểm danh + cho phép ghi danh tự do (walk-in)
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS checkin_fields JSONB;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS allow_open BOOLEAN NOT NULL DEFAULT false;
+-- Cấu hình trường riêng của phiên (NULL = dùng mặc định hệ thống)
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS list_fields JSONB;
 -- Đánh dấu người ghi danh tự do (không có trong danh sách gốc)
 ALTER TABLE attendees ADD COLUMN IF NOT EXISTS self_registered BOOLEAN NOT NULL DEFAULT false;
 -- Họ và tên không còn bắt buộc (có thể điểm danh chỉ bằng SĐT/CCCD)

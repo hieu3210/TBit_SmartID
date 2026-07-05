@@ -6,8 +6,8 @@ const { query, pool, nowVN } = require('../db');
 const { requireAuth, loadOwnedSession } = require('../middleware');
 const { buildTemplate, parseAttendees, buildExport } = require('../lib/excel');
 const {
-  getListFields, enabledColumns, columnsForSession,
-  validateCheckinFields, DEFAULT_OPEN_FIELDS, validateOpenFields,
+  getListFields, enabledColumns, columnsForSession, sessionFieldConfig, formFields,
+  validateCheckinFields, validateSessionFields,
 } = require('../lib/fields');
 const { currentCode, secondsLeft } = require('../lib/qrtoken');
 const { qrSecondsFor } = require('../lib/sysconfig');
@@ -99,27 +99,34 @@ router.post('/', async (req, res, next) => {
       }
     }
 
+    // Cấu hình trường riêng của phiên (tuỳ chọn — mặc định dùng cấu hình hệ thống)
+    let listFieldsCfg = null;
+    if (b.list_fields) {
+      const r = validateSessionFields(b.list_fields, type);
+      if (r.error) return res.status(400).json({ error: r.error });
+      listFieldsCfg = r.fields;
+    }
+
     // Phiên theo danh sách: trường bắt buộc để điểm danh + cho phép ghi danh tự do (walk-in)
     let checkinFields = null;
     let allowOpen = false;
-    let fields = type === 'open' ? DEFAULT_OPEN_FIELDS : null;
     if (type === 'list') {
       allowOpen = !!b.allow_open;
       if (b.checkin_fields) {
-        const r = validateCheckinFields(b.checkin_fields, await getListFields());
+        const cfg = listFieldsCfg || await getListFields();
+        const r = validateCheckinFields(b.checkin_fields, cfg);
         if (r.error) return res.status(400).json({ error: r.error });
         checkinFields = r.fields;
       }
-      if (allowOpen) fields = DEFAULT_OPEN_FIELDS; // form cho người không có trong danh sách
     }
 
     const token = crypto.randomBytes(16).toString('hex');
     const { rows } = await query(
-      `INSERT INTO sessions (name, token, owner_id, created_at, type, fields, ends_at, qr_seconds, checkin_fields, allow_open)
+      `INSERT INTO sessions (name, token, owner_id, created_at, type, ends_at, qr_seconds, checkin_fields, allow_open, list_fields)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-      [name, token, req.session.user.id, nowVN(), type,
-        fields ? JSON.stringify(fields) : null, endsAt, qrSeconds,
-        checkinFields ? JSON.stringify(checkinFields) : null, allowOpen]
+      [name, token, req.session.user.id, nowVN(), type, endsAt, qrSeconds,
+        checkinFields ? JSON.stringify(checkinFields) : null, allowOpen,
+        listFieldsCfg ? JSON.stringify(listFieldsCfg) : null]
     );
     res.json({ id: rows[0].id, name, token, status: 'draft', type });
   } catch (e) { next(e); }
@@ -131,9 +138,7 @@ router.put('/:id/allow-open', loadOwnedSession, async (req, res, next) => {
     const s = req.attSession;
     if (s.type !== 'list') return res.status(400).json({ error: 'Chỉ áp dụng cho phiên theo danh sách' });
     const allow = !!(req.body || {}).allow_open;
-    // Bật lần đầu mà chưa có form walk-in thì đặt form mặc định
-    const setFields = allow && !s.fields ? JSON.stringify(DEFAULT_OPEN_FIELDS) : (s.fields ? JSON.stringify(s.fields) : null);
-    await query('UPDATE sessions SET allow_open = $1, fields = $2 WHERE id = $3', [allow, setFields, s.id]);
+    await query('UPDATE sessions SET allow_open = $1 WHERE id = $2', [allow, s.id]);
     res.json({ ok: true, allow_open: allow });
   } catch (e) { next(e); }
 });
@@ -150,22 +155,42 @@ router.put('/:id/ends-at', loadOwnedSession, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// Cấu hình form ghi danh (chỉ phiên ghi danh, khi còn nháp)
+// Cấu hình trường của phiên khi còn nháp (áp dụng cho cả hai loại)
 router.put('/:id/fields', loadOwnedSession, async (req, res, next) => {
   try {
     const s = req.attSession;
-    if (s.type !== 'open') return res.status(400).json({ error: 'Chỉ phiên ghi danh mới cấu hình được form' });
-    if (s.status !== 'draft') return res.status(400).json({ error: 'Chỉ sửa được form khi phiên chưa bắt đầu' });
-    const { fields, error } = validateOpenFields((req.body || {}).fields);
+    if (s.status !== 'draft') return res.status(400).json({ error: 'Chỉ sửa được trường khi phiên chưa bắt đầu' });
+    const { fields, error } = validateSessionFields((req.body || {}).fields, s.type);
     if (error) return res.status(400).json({ error });
-    await query('UPDATE sessions SET fields = $1 WHERE id = $2', [JSON.stringify(fields), s.id]);
+    await query('UPDATE sessions SET list_fields = $1 WHERE id = $2', [JSON.stringify(fields), s.id]);
     res.json({ ok: true, fields });
   } catch (e) { next(e); }
 });
 
+// Tải template Excel theo cấu hình trường của phiên (nhãn theo ngôn ngữ)
+router.get('/:id/template', loadOwnedSession, async (req, res, next) => {
+  try {
+    const lang = req.query.lang === 'en' ? 'en' : 'vi';
+    const fname = lang === 'en' ? 'attendance_template.xlsx' : 'template_diem_danh.xlsx';
+    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const cfg = sessionFieldConfig(req.attSession, await getListFields());
+    res.send(buildTemplate(enabledColumns(cfg, lang)));
+  } catch (e) { next(e); }
+});
+
 router.get('/:id', loadOwnedSession, async (req, res, next) => {
-  try { res.json({ ...req.attSession, stats: await statsFor(req.attSession.id) }); }
-  catch (e) { next(e); }
+  try {
+    const lang = req.query.lang === 'en' ? 'en' : 'vi';
+    const s = req.attSession;
+    const cfg = sessionFieldConfig(s, await getListFields());
+    res.json({
+      ...s,
+      columns: enabledColumns(cfg, lang),
+      field_config: cfg, // cấu hình đầy đủ để chỉnh trong nháp
+      stats: await statsFor(s.id),
+    });
+  } catch (e) { next(e); }
 });
 
 router.delete('/:id', loadOwnedSession, async (req, res, next) => {
@@ -184,7 +209,8 @@ router.post('/:id/upload', loadOwnedSession, upload.single('file'), async (req, 
 
   let parsed;
   try {
-    parsed = parseAttendees(req.file.buffer, enabledColumns(await getListFields()));
+    const cfg = sessionFieldConfig(s, await getListFields());
+    parsed = parseAttendees(req.file.buffer, enabledColumns(cfg));
   } catch (e) {
     return res.status(400).json({ error: 'Không đọc được file — hãy dùng file .xlsx theo template' });
   }

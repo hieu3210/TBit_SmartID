@@ -61,32 +61,31 @@ function slugKey(label, taken) {
   return key;
 }
 
-// Chuẩn hoá cấu hình: đủ trường lõi, ≥1 định danh, custom có nhãn vi/en + khoá ổn định
+// Chuẩn hoá cấu hình — GIỮ NGUYÊN thứ tự và việc admin/người dùng đã xoá trường lõi.
+// Không tự thêm lại trường lõi (admin có thể xoá trường mặc định).
 function normalizeListFields(list) {
-  const byKey = new Map();
-  const custom = [];
-  const takenKeys = new Set(CORE_KEYS);
+  const out = [];
+  const takenKeys = new Set();
+  let customCount = 0;
   (Array.isArray(list) ? list : []).forEach((f) => {
     if (!f) return;
     const key = String(f.key || '').trim();
     if (key && CORE_KEYS.includes(key)) {
-      byKey.set(key, { key, enabled: f.enabled !== false, required: !!f.required });
+      if (takenKeys.has(key)) return;
+      takenKeys.add(key);
+      out.push({ key, enabled: f.enabled !== false, required: !!f.required });
       return;
     }
-    // Trường custom (có thể chưa có khoá — sẽ sinh khoá ổn định từ nhãn tiếng Việt)
+    if (customCount >= MAX_CUSTOM) return;
     const labelVi = String(f.label_vi || f.label || key).trim().slice(0, MAX_LABEL_LENGTH);
     const labelEn = String(f.label_en || f.label_vi || f.label || key).trim().slice(0, MAX_LABEL_LENGTH);
     if (!labelVi) return;
     let k = key;
-    if (!k || takenKeys.has(k)) k = slugKey(labelVi, takenKeys); else takenKeys.add(k);
-    custom.push({ key: k, enabled: f.enabled !== false, required: !!f.required, label_vi: labelVi, label_en: labelEn });
+    if (!k || CORE_KEYS.includes(k) || takenKeys.has(k)) k = slugKey(labelVi, takenKeys); else takenKeys.add(k);
+    out.push({ key: k, enabled: f.enabled !== false, required: !!f.required, label_vi: labelVi, label_en: labelEn });
+    customCount += 1;
   });
-  const result = LIST_CORE.map((c) => byKey.get(c.key)
-    || { key: c.key, enabled: true, required: c.key === 'cccd' || c.key === 'phone' });
-  if (!result.find((f) => (f.key === 'cccd' || f.key === 'phone') && f.enabled)) {
-    result.find((f) => f.key === 'cccd').enabled = true;
-  }
-  return [...result, ...custom.slice(0, MAX_CUSTOM)];
+  return out;
 }
 
 async function getListFields() {
@@ -109,11 +108,16 @@ async function getListFields() {
   return cloneDefault();
 }
 
-function validateListFields(input) {
+// type = 'list' (cần ≥1 định danh CCCD/SĐT) | 'open' (cần ≥1 trường Họ tên/SĐT/CCCD)
+function validateSessionFields(input, type = 'list') {
   if (!Array.isArray(input)) return { error: 'Dữ liệu không hợp lệ' };
-  const isEnabled = (key) => { const it = input.find((f) => f && f.key === key); return !it || it.enabled !== false; };
-  if (!isEnabled('cccd') && !isEnabled('phone')) {
-    return { error: 'Phải bật ít nhất một trong hai trường định danh: Số CCCD hoặc Số điện thoại' };
+  const isEnabled = (key) => { const it = input.find((f) => f && f.key === key); return !!it && it.enabled !== false; };
+  if (type === 'list') {
+    if (!isEnabled('cccd') && !isEnabled('phone')) {
+      return { error: 'Phải bật ít nhất một trong hai trường định danh: Số CCCD hoặc Số điện thoại' };
+    }
+  } else if (!isEnabled('full_name') && !isEnabled('phone') && !isEnabled('cccd')) {
+    return { error: 'Cần bật ít nhất một trong các trường: Họ và tên, Số điện thoại hoặc Số CCCD' };
   }
   const seen = new Set();
   const coreLabelsLower = new Set();
@@ -131,8 +135,13 @@ function validateListFields(input) {
     customCount += 1;
   }
   if (customCount > MAX_CUSTOM) return { error: `Tối đa ${MAX_CUSTOM} trường bổ sung` };
-  return { fields: normalizeListFields(input) };
+  const fields = normalizeListFields(input);
+  if (!fields.some((f) => f.enabled)) return { error: 'Chọn ít nhất một trường thông tin' };
+  return { fields };
 }
+
+// Admin cấu hình mặc định hệ thống (luôn là phiên danh sách)
+function validateListFields(input) { return validateSessionFields(input, 'list'); }
 
 async function saveListFields(fields) {
   await setSetting('list_fields', JSON.stringify(fields));
@@ -184,10 +193,11 @@ function validateCheckinFields(input, listFields) {
 }
 
 // Định nghĩa đầy đủ (key, label) của các trường điểm danh theo cấu hình phiên + ngôn ngữ
-function checkinFieldDefs(session, listFields, lang = 'vi') {
+function checkinFieldDefs(session, globalFields, lang = 'vi') {
+  const config = sessionFieldConfig(session, globalFields);
   const keys = (session.checkin_fields && session.checkin_fields.length)
-    ? session.checkin_fields : defaultCheckinFields(listFields);
-  const byKey = new Map(enabledColumns(listFields, lang).map((c) => [c.key, c.label]));
+    ? session.checkin_fields : defaultCheckinFields(config);
+  const byKey = new Map(enabledColumns(config, lang).map((c) => [c.key, c.label]));
   return keys.filter((k) => byKey.has(k)).map((k) => ({ key: k, label: byKey.get(k) }));
 }
 
@@ -242,19 +252,46 @@ function validateOpenFields(input) {
   return { fields };
 }
 
-/* ===== Cột dữ liệu của một phiên (dùng cho xuất Excel/email tổng hợp) ===== */
-function columnsForSession(session, listFields, lang = 'vi') {
+const DEFAULT_OPEN_CONFIG = [
+  { key: 'full_name', enabled: true, required: true },
+  { key: 'phone', enabled: true, required: true },
+];
+
+// Chuyển cấu hình form ghi danh cũ ({key,label,required}) sang cấu hình trường mới
+function convertLegacyOpenFields(fields) {
+  const taken = new Set();
+  return (fields || []).map((f) => {
+    const key = String(f.key || '').trim();
+    if (CORE_KEYS.includes(key)) { taken.add(key); return { key, enabled: true, required: !!f.required }; }
+    const label = String(f.label || key).trim();
+    return { key: slugKey(label, taken), enabled: true, required: !!f.required, label_vi: label, label_en: label };
+  });
+}
+
+// Cấu hình trường hiệu lực của một phiên: ưu tiên list_fields riêng, rồi (open cũ) fields, cuối cùng mặc định hệ thống
+function sessionFieldConfig(session, globalFields) {
+  if (session.list_fields && session.list_fields.length) return normalizeListFields(session.list_fields);
   if (session.type === 'open') {
-    const f = (session.fields && session.fields.length) ? session.fields : DEFAULT_OPEN_FIELDS;
-    return f.map((x) => ({ key: x.key, label: x.label }));
+    if (session.fields && session.fields.length) return convertLegacyOpenFields(session.fields);
+    return DEFAULT_OPEN_CONFIG.map((f) => ({ ...f }));
   }
-  return enabledColumns(listFields, lang).map((c) => ({ key: c.key, label: c.label }));
+  return globalFields;
+}
+
+// Trường của form nhập (ghi danh tự do / walk-in): các trường đang bật + cờ bắt buộc
+function formFields(config, lang = 'vi') {
+  return enabledColumns(config, lang).map((c) => ({ key: c.key, label: c.label, required: c.required, kind: c.kind }));
+}
+
+/* ===== Cột dữ liệu của một phiên (template/xem trước/xuất Excel) theo cấu hình phiên ===== */
+function columnsForSession(session, globalFields, lang = 'vi') {
+  return enabledColumns(sessionFieldConfig(session, globalFields), lang).map((c) => ({ key: c.key, label: c.label }));
 }
 
 module.exports = {
   CORE_KEYS, LIST_CORE, HEADER_MATCH,
-  getListFields, saveListFields, validateListFields, enabledColumns, fieldsWithLabels,
+  getListFields, saveListFields, validateListFields, validateSessionFields, enabledColumns, fieldsWithLabels,
   defaultCheckinFields, validateCheckinFields, checkinFieldDefs,
   OPEN_CORE_FIELDS, DEFAULT_OPEN_FIELDS, validateOpenFields,
-  columnsForSession,
+  sessionFieldConfig, formFields, columnsForSession,
 };

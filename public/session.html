@@ -66,16 +66,9 @@
       <h2>Thông tin người ghi danh cần điền</h2>
       <p class="muted" style="margin-bottom:12px;">
         Người tham dự quét QR và tự điền form theo các trường bên dưới.
-        Chọn trường muốn dùng, đánh dấu <b>Bắt buộc</b> với thông tin không thể thiếu.
+        Chọn trường muốn dùng, đánh dấu <b>Bắt buộc</b> với thông tin không thể thiếu; có thể thêm trường riêng.
       </p>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Trường</th><th style="text-align:center;">Sử dụng</th><th style="text-align:center;">Bắt buộc</th><th></th></tr></thead>
-        <tbody id="fieldRows"></tbody>
-      </table></div>
-      <form id="addFieldForm" class="row mt">
-        <input id="newOpenField" placeholder="Thêm trường khác — VD: Chức vụ" maxlength="40" style="flex:1;min-width:160px;margin-bottom:0;">
-        <button class="btn secondary" type="submit">＋ Thêm trường</button>
-      </form>
+      <div id="openFieldCfg"></div>
       <button class="btn big full mt" id="btnOpenStart">▶ Bắt đầu ghi danh</button>
     </div>
   </div>
@@ -215,6 +208,7 @@
 
 <script src="/js/i18n.js"></script>
 <script src="/js/api.js"></script>
+<script src="/js/fieldconfig.js"></script>
 <script src="/js/shell.js"></script>
 <script>
 const sessionId = new URLSearchParams(location.search).get('id');
@@ -225,8 +219,11 @@ const TYPE_LABEL = { qr: 'QR', manual: 'BTC xác nhận', supplement: 'Bổ sung
 
 async function load() {
   clearTimers();
-  try { sess = await api(`/api/sessions/${sessionId}`); }
+  try { sess = await api(`/api/sessions/${sessionId}?lang=${LANG}`); }
   catch (e) { showAlert('alert', e.message); return; }
+  // Cột hiệu lực của phiên (theo cấu hình riêng hoặc mặc định hệ thống)
+  listColumns = sess.columns || [];
+  customCols = listColumns.filter((c) => c.kind === 'custom');
 
   el('sessionName').textContent = sess.name;
   const badge = el('sessionBadge');
@@ -247,16 +244,12 @@ async function load() {
       el('manualTitle').textContent = 'Danh sách đã ghi danh';
       el('manualSearch').placeholder = 'Tìm theo tên / đơn vị…';
       el('btnClose').textContent = '⏹ Kết thúc ghi danh';
-      // Cho phép người quản lý ghi danh hộ; trường theo form ghi danh của phiên
-      show('btnAddMemberLive');
-      customCols = (sess.fields || []).filter((f) => !['cccd', 'full_name', 'unit', 'phone', 'email'].includes(f.key))
-        .map((f) => ({ key: f.key, label: f.label }));
+      show('btnAddMemberLive'); // người quản lý ghi danh hộ
     } else {
       // Phiên danh sách: cho phép thêm người và bật/tắt ghi danh tự do ngay lúc đang điểm danh
       show('btnAddMemberLive');
       show('btnToggleOpen');
       el('btnToggleOpen').textContent = sess.allow_open ? '⏻ Tắt ghi danh tự do' : '＋ Bật ghi danh tự do';
-      loadListColumns().catch(() => {});
     }
     el('endsNote').textContent = sess.ends_at ? ` · ⏰ Tự kết thúc lúc ${sess.ends_at.slice(0, 16)}` : '';
     startQrPolling();
@@ -315,15 +308,11 @@ function cellOf(a, key) {
 function nameOf(a) { return a.full_name || a.phone || a.cccd || '(không tên)'; }
 
 const LANG = window.I18N_LANG || 'vi';
-if (el('tplLink2')) el('tplLink2').href = `/api/sessions/template?lang=${LANG}`;
-async function loadListColumns() {
-  const cfg = await api(`/api/settings/list-fields?lang=${LANG}`);
-  listColumns = cfg.columns;
-  customCols = cfg.columns.filter((c) => c.kind === 'custom');
-}
+// Link template theo cấu hình trường của phiên
+if (el('tplLink2')) el('tplLink2').href = `/api/sessions/${sessionId}/template?lang=${LANG}`;
 
 async function renderPreview() {
-  const [rows] = await Promise.all([api(`/api/sessions/${sessionId}/attendees`), loadListColumns()]);
+  const rows = await api(`/api/sessions/${sessionId}/attendees`);
   rows.forEach((a) => { memberById[a.id] = a; });
   el('previewCount').textContent = rows.length;
   el('previewTable').querySelector('thead').innerHTML =
@@ -436,80 +425,17 @@ el('btnOpen').addEventListener('click', async () => {
 });
 
 /* ---------- DRAFT (phiên ghi danh): cấu hình form ---------- */
-const OPEN_CORE = [
-  { key: 'full_name', label: 'Họ và tên' },
-  { key: 'phone', label: 'Số điện thoại' },
-  { key: 'cccd', label: 'Số CCCD' },
-  { key: 'unit', label: 'Đơn vị' },
-  { key: 'email', label: 'Email' },
-];
-let fieldState = null; // { core: {key: {enabled, required}}, custom: [{label, required}] }
-
-function initFieldState() {
-  const saved = sess.fields || [];
-  const map = new Map(saved.map((f) => [f.key, f]));
-  fieldState = { core: {}, custom: [] };
-  OPEN_CORE.forEach((f) => {
-    const s = map.get(f.key);
-    fieldState.core[f.key] = f.locked
-      ? { enabled: true, required: true }
-      : { enabled: !!s, required: s ? !!s.required : false };
-  });
-  saved.forEach((f) => {
-    if (!OPEN_CORE.some((c) => c.key === f.key)) fieldState.custom.push({ label: f.label, required: !!f.required });
-  });
-}
+let openCfg = null; // configurator cho phiên ghi danh
 
 function renderFieldEditor() {
-  if (!fieldState) initFieldState();
-  el('fieldRows').innerHTML =
-    OPEN_CORE.map((f) => {
-      const st = fieldState.core[f.key];
-      return `<tr>
-        <td><b>${f.label}</b>${f.locked ? ' <span class="muted">(luôn bắt buộc)</span>' : ''}</td>
-        <td style="text-align:center;"><input type="checkbox" ${st.enabled ? 'checked' : ''} ${f.locked ? 'disabled' : ''}
-             onchange="toggleCore('${f.key}','enabled',this.checked)"></td>
-        <td style="text-align:center;"><input type="checkbox" ${st.required ? 'checked' : ''} ${f.locked || !st.enabled ? 'disabled' : ''}
-             onchange="toggleCore('${f.key}','required',this.checked)"></td>
-        <td></td></tr>`;
-    }).join('') +
-    fieldState.custom.map((f, i) => `<tr>
-        <td><b>${esc(f.label)}</b> <span class="muted">(trường bổ sung)</span></td>
-        <td style="text-align:center;"><input type="checkbox" checked disabled></td>
-        <td style="text-align:center;"><input type="checkbox" ${f.required ? 'checked' : ''} onchange="toggleCustom(${i},this.checked)"></td>
-        <td style="text-align:right;"><button class="btn danger small" onclick="removeCustom(${i})">Xoá</button></td></tr>`).join('');
-}
-
-function toggleCore(key, prop, val) {
-  fieldState.core[key][prop] = val;
-  if (prop === 'enabled' && !val) fieldState.core[key].required = false;
-  renderFieldEditor();
-}
-function toggleCustom(i, val) { fieldState.custom[i].required = val; }
-function removeCustom(i) { fieldState.custom.splice(i, 1); renderFieldEditor(); }
-
-el('addFieldForm').addEventListener('submit', (ev) => {
-  ev.preventDefault();
-  const label = el('newOpenField').value.trim();
-  if (!label) return;
-  fieldState.custom.push({ label, required: false });
-  el('newOpenField').value = '';
-  renderFieldEditor();
-});
-
-function collectFields() {
-  return [
-    ...OPEN_CORE.filter((f) => fieldState.core[f.key].enabled)
-      .map((f) => ({ key: f.key, required: fieldState.core[f.key].required })),
-    ...fieldState.custom.map((f) => ({ key: f.label, label: f.label, required: f.required })),
-  ];
+  openCfg = createFieldConfigurator(el('openFieldCfg'), (sess.field_config || []).map((f) => ({ ...f })), { lang: LANG });
 }
 
 el('btnOpenStart').addEventListener('click', async () => {
   if (!confirm('Bắt đầu ghi danh? Sau khi bắt đầu sẽ không sửa được các trường thông tin.')) return;
   clearAlert('alert');
   try {
-    await api(`/api/sessions/${sessionId}/fields`, { method: 'PUT', body: { fields: collectFields() } });
+    await api(`/api/sessions/${sessionId}/fields`, { method: 'PUT', body: { fields: openCfg.get() } });
     await api(`/api/sessions/${sessionId}/open`, { method: 'POST' });
     load();
   } catch (e) { showAlert('alert', e.message); }

@@ -142,11 +142,16 @@
       <label class="radio"><input type="radio" name="sessType" value="open">
         <span><b data-i18n="create.typeOpen">Không theo danh sách (ghi danh tự do)</b> <span data-i18n="create.typeOpenDesc">— người tham dự quét QR và tự điền thông tin ghi danh</span></span></label>
 
+      <div id="fieldCfgWrap" style="background:var(--bg);border-radius:10px;padding:12px 14px;margin:4px 0 10px;">
+        <label style="margin-bottom:6px;"><span id="fieldCfgLabel" data-i18n="create.fieldsList">Trường thông tin danh sách</span> <span class="muted" id="fieldCfgHint" data-i18n="create.fieldsHint">(chọn trường dùng, đánh dấu bắt buộc, thêm trường riêng)</span></label>
+        <div id="fieldCfgBox"></div>
+      </div>
+
       <div id="listConfig" style="background:var(--bg);border-radius:10px;padding:12px 14px;margin:4px 0 12px;">
         <label style="margin-bottom:6px;"><span data-i18n="create.checkinBy">Điểm danh bằng cách nhập</span> <span class="muted" data-i18n="create.checkinByHint">(chọn ≥1 trường định danh)</span></label>
         <div class="row" id="checkinFieldsBox" style="gap:14px;"></div>
         <label class="radio" style="margin:10px 0 0;"><input type="checkbox" id="allowOpen">
-          <span><b data-i18n="create.allowOpen">Cho phép ghi danh tự do</b> <span data-i18n="create.allowOpenDesc">— người không có trong danh sách vẫn quét QR và tự ghi danh</span></span></label>
+          <span><b data-i18n="create.allowOpen">Cho phép ghi danh tự do</b> <span data-i18n="create.allowOpenDesc">— người không có trong danh sách vẫn quét QR và tự ghi danh (chỉ yêu cầu nhập các trường bắt buộc)</span></span></label>
       </div>
 
       <div class="row" style="margin-top:2px;">
@@ -215,6 +220,7 @@
 
 <script src="/js/i18n.js"></script>
 <script src="/js/api.js"></script>
+<script src="/js/fieldconfig.js"></script>
 <script src="/js/shell.js"></script>
 <script>
 let me = null;
@@ -298,29 +304,63 @@ el('forgotForm').addEventListener('submit', async (ev) => {
 });
 
 /* Tạo phiên */
-const sessTypeInputs = () => document.querySelectorAll('input[name="sessType"]');
+const LANG = window.I18N_LANG || 'vi';
+el('tplLink').href = `/api/sessions/template?lang=${LANG}`;
+
+let globalFields = null;   // cấu hình trường mặc định hệ thống
+let fieldCfg = null;       // configurator hiện tại
+const ckSel = new Set();   // trường điểm danh đã chọn (phiên danh sách)
+
+const DEFAULT_OPEN_INIT = [
+  { key: 'full_name', enabled: true, required: true, label_vi: 'Họ và tên', label_en: 'Full name' },
+  { key: 'phone', enabled: true, required: true, label_vi: 'Số điện thoại', label_en: 'Phone' },
+];
+
+function renderCheckinOptions() {
+  if (!fieldCfg) return;
+  const enabled = fieldCfg.fields().filter((f) => f.enabled);
+  const keys = new Set(enabled.map((f) => f.key));
+  [...ckSel].forEach((k) => { if (!keys.has(k)) ckSel.delete(k); });
+  if (![...ckSel].some((k) => k === 'cccd' || k === 'phone')) {
+    ckSel.clear();
+    if (keys.has('phone')) ckSel.add('phone'); else if (keys.has('cccd')) ckSel.add('cccd');
+  }
+  el('checkinFieldsBox').innerHTML = enabled.map((f) => {
+    const label = LANG === 'en' ? (f.label_en || f.label_vi) : f.label_vi;
+    return `<label class="radio" style="margin:0;"><input type="checkbox" class="ckField" value="${esc(f.key)}" ${ckSel.has(f.key) ? 'checked' : ''}> <span>${esc(label)}</span></label>`;
+  }).join('');
+  el('checkinFieldsBox').querySelectorAll('.ckField').forEach((cb) => {
+    cb.onchange = () => { cb.checked ? ckSel.add(cb.value) : ckSel.delete(cb.value); };
+  });
+}
+
+function initConfigurator(type) {
+  const init = type === 'open'
+    ? DEFAULT_OPEN_INIT.map((f) => ({ ...f }))
+    : (globalFields || []).map((f) => ({ ...f }));
+  ckSel.clear();
+  fieldCfg = createFieldConfigurator(el('fieldCfgBox'), init, {
+    lang: LANG,
+    onChange: () => { if (type === 'list') renderCheckinOptions(); },
+  });
+  if (type === 'list') renderCheckinOptions();
+}
+
 function onTypeChange() {
   const type = document.querySelector('input[name="sessType"]:checked').value;
   el('listConfig').style.display = type === 'list' ? '' : 'none';
+  el('fieldCfgLabel').textContent = type === 'list' ? t('create.fieldsList', 'Trường thông tin danh sách') : t('create.fieldsOpen', 'Thông tin ghi danh cần nhập');
+  initConfigurator(type);
 }
-sessTypeInputs().forEach((r) => r.addEventListener('change', onTypeChange));
+document.querySelectorAll('input[name="sessType"]').forEach((r) => r.addEventListener('change', onTypeChange));
 
-el('tplLink').href = `/api/sessions/template?lang=${window.I18N_LANG || 'vi'}`;
-
-async function loadCheckinFieldOptions() {
-  try {
-    const cfg = await api(`/api/settings/list-fields?lang=${window.I18N_LANG || 'vi'}`);
-    const hasPhone = cfg.columns.some((c) => c.key === 'phone');
-    el('checkinFieldsBox').innerHTML = cfg.columns.map((c) => {
-      // Mặc định chỉ cần Số điện thoại (nếu không có SĐT thì Số CCCD)
-      const def = hasPhone ? c.key === 'phone' : c.key === 'cccd';
-      return `<label class="radio" style="margin:0;"><input type="checkbox" class="ckField" value="${esc(c.key)}" ${def ? 'checked' : ''}> <span>${esc(c.label)}</span></label>`;
-    }).join('');
-  } catch (e) { el('checkinFieldsBox').innerHTML = '<span class="muted">Không tải được cấu hình trường</span>'; }
-}
-
-el('btnNewSession').addEventListener('click', () => {
-  show('newSessionForm'); onTypeChange(); loadCheckinFieldOptions(); el('newSessionName').focus();
+el('btnNewSession').addEventListener('click', async () => {
+  show('newSessionForm');
+  el('newSessionName').focus();
+  if (!globalFields) {
+    try { globalFields = (await api(`/api/settings/list-fields?lang=${LANG}`)).fields; } catch (e) { globalFields = []; }
+  }
+  onTypeChange();
 });
 el('btnCancelCreate').addEventListener('click', () => hide('newSessionForm'));
 
@@ -330,9 +370,12 @@ el('btnCreateSession').addEventListener('click', async () => {
     const type = document.querySelector('input[name="sessType"]:checked').value;
     const mode = el('newQrMode').value;
     const qrSeconds = mode === 'custom' ? el('newQrSeconds').value : mode === '0' ? 0 : null;
-    const body = { name: el('newSessionName').value, type, ends_at: el('newEndsAt').value || null, qr_seconds: qrSeconds };
+    const body = {
+      name: el('newSessionName').value, type, ends_at: el('newEndsAt').value || null, qr_seconds: qrSeconds,
+      list_fields: fieldCfg.get(),
+    };
     if (type === 'list') {
-      body.checkin_fields = [...document.querySelectorAll('.ckField:checked')].map((c) => c.value);
+      body.checkin_fields = [...ckSel];
       body.allow_open = el('allowOpen').checked;
       if (!body.checkin_fields.some((k) => k === 'cccd' || k === 'phone')) {
         return showAlert('listAlert', 'Chọn ít nhất Số CCCD hoặc Số điện thoại làm trường điểm danh');
