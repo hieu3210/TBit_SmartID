@@ -15,12 +15,12 @@
 </div>
 
 <div class="container">
-  <h2 style="font-size:20px;margin-bottom:14px;">Quản trị hệ thống</h2>
+  <h2 style="font-size:20px;margin-bottom:14px;" data-i18n="admin.title">Quản trị hệ thống</h2>
   <div id="alert" class="alert hidden"></div>
 
   <!-- ===== Thiết lập hệ thống ===== -->
   <div class="card">
-    <h2>Thiết lập hệ thống</h2>
+    <h2 data-i18n="admin.sys.title">Thiết lập hệ thống</h2>
     <div id="sysAlert" class="alert hidden"></div>
     <div class="row" style="align-items:flex-end;">
       <div style="min-width:220px;">
@@ -29,7 +29,7 @@
       </div>
       <p class="muted" style="flex:1;min-width:200px;margin:0;">Áp dụng cho phiên không đặt chu kỳ riêng (5–300 giây).</p>
     </div>
-    <h2 class="mt" style="font-size:16px;">Máy chủ email (SMTP)</h2>
+    <h2 class="mt" style="font-size:16px;" data-i18n="admin.smtp.title">Máy chủ email (SMTP)</h2>
     <p class="muted" style="margin-bottom:10px;">Dùng để gửi email đặt lại mật khẩu và thông báo kết thúc phiên. VD Gmail: <b>smtp.gmail.com</b>, cổng <b>587</b>, mật khẩu là <i>App Password</i>.</p>
     <div class="row">
       <div style="flex:2;min-width:180px;">
@@ -63,7 +63,7 @@
 
   <!-- ===== Trường danh sách điểm danh ===== -->
   <div class="card">
-    <h2>Trường thông tin danh sách điểm danh</h2>
+    <h2 data-i18n="admin.fields.title">Trường thông tin danh sách điểm danh</h2>
     <p class="muted" style="margin-bottom:10px;">
       Chọn trường nào <b>có trong mẫu</b> (người dùng tải template về sẽ thấy) và trường nào
       <b>bắt buộc nhập</b> khi chuẩn bị danh sách. Có thể thêm trường riêng (VD: Chức vụ, Mã cán bộ).
@@ -88,7 +88,7 @@
 
   <!-- ===== Người dùng ===== -->
   <div class="card">
-    <h2>Thêm người dùng</h2>
+    <h2 data-i18n="admin.users.addTitle">Thêm người dùng</h2>
     <form id="addForm">
       <div class="row">
         <div style="flex:1;min-width:150px;">
@@ -123,11 +123,27 @@
   </div>
 
   <div class="card">
-    <h2>Danh sách người dùng</h2>
+    <h2 data-i18n="admin.users.listTitle">Danh sách người dùng</h2>
     <div class="table-wrap"><table>
       <thead><tr><th>Tên đăng nhập</th><th>Họ và tên</th><th>Email</th><th>Vai trò</th><th></th></tr></thead>
       <tbody id="userBody"></tbody>
     </table></div>
+  </div>
+
+  <!-- ===== Ngôn ngữ / Language ===== -->
+  <div class="card">
+    <h2 data-i18n="admin.i18n.title">Ngôn ngữ / Language</h2>
+    <p class="muted" style="margin-bottom:10px;" data-i18n="admin.i18n.desc">Chỉnh nhãn giao diện cho từng ngôn ngữ. Để trống một ô sẽ dùng bản mặc định.</p>
+    <div id="i18nAlert" class="alert hidden"></div>
+    <input id="i18nFilter" placeholder="Lọc theo khoá hoặc nội dung…" style="margin-bottom:10px;">
+    <div class="table-wrap" style="max-height:420px;overflow:auto;"><table>
+      <thead><tr><th style="min-width:120px;" data-i18n="admin.i18n.key">Khoá</th><th>🇻🇳 Tiếng Việt</th><th>🇬🇧 English</th></tr></thead>
+      <tbody id="i18nRows"></tbody>
+    </table></div>
+    <div class="row mt">
+      <button class="btn" id="btnSaveI18n" data-i18n="admin.i18n.save">💾 Lưu bản dịch</button>
+      <button class="btn secondary" type="button" id="btnResetI18n" data-i18n="admin.i18n.reset">↺ Về mặc định</button>
+    </div>
   </div>
 </div>
 
@@ -156,6 +172,7 @@
   </div>
 </div>
 
+<script src="/js/i18n.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/shell.js"></script>
 <script>
@@ -337,9 +354,64 @@ el('btnFieldsDefault').addEventListener('click', async () => {
   el('btnSaveFields').click();
 });
 
+/* ---------- Dịch ngôn ngữ (i18n) ---------- */
+let i18nData = null; // { langs, defaults, overrides }
+
+function renderI18n(filter) {
+  const f = (filter || '').trim().toLowerCase();
+  const keys = Object.keys(i18nData.defaults.vi);
+  el('i18nRows').innerHTML = keys.filter((k) => {
+    if (!f) return true;
+    return k.toLowerCase().includes(f)
+      || (i18nData.defaults.vi[k] || '').toLowerCase().includes(f)
+      || (i18nData.defaults.en[k] || '').toLowerCase().includes(f);
+  }).map((k) => {
+    const vi = (i18nData.overrides.vi && i18nData.overrides.vi[k]) || '';
+    const en = (i18nData.overrides.en && i18nData.overrides.en[k]) || '';
+    return `<tr>
+      <td style="font-family:monospace;font-size:12px;color:var(--gray);">${esc(k)}</td>
+      <td><input data-lang="vi" data-key="${esc(k)}" value="${esc(vi)}" placeholder="${esc(i18nData.defaults.vi[k] || '')}" style="margin:0;font-size:14px;"></td>
+      <td><input data-lang="en" data-key="${esc(k)}" value="${esc(en)}" placeholder="${esc(i18nData.defaults.en[k] || '')}" style="margin:0;font-size:14px;"></td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadI18n() {
+  i18nData = await api('/api/settings/i18n');
+  renderI18n('');
+}
+
+el('i18nFilter').addEventListener('input', () => renderI18n(el('i18nFilter').value));
+
+el('btnSaveI18n').addEventListener('click', async () => {
+  clearAlert('i18nAlert');
+  // Gộp giá trị đang nhập vào overrides (giữ cả những khoá đang bị lọc ẩn)
+  const ov = { vi: { ...(i18nData.overrides.vi || {}) }, en: { ...(i18nData.overrides.en || {}) } };
+  el('i18nRows').querySelectorAll('input[data-key]').forEach((inp) => {
+    const l = inp.dataset.lang; const k = inp.dataset.key; const v = inp.value.trim();
+    if (v) ov[l][k] = v; else delete ov[l][k];
+  });
+  try {
+    await api('/api/settings/i18n', { method: 'PUT', body: { overrides: ov } });
+    i18nData.overrides = ov;
+    showAlert('i18nAlert', 'Đã lưu bản dịch. Tải lại trang để áp dụng.', 'success');
+  } catch (e) { showAlert('i18nAlert', e.message); }
+});
+
+el('btnResetI18n').addEventListener('click', async () => {
+  if (!confirm('Xoá toàn bộ bản dịch tuỳ chỉnh, về mặc định?')) return;
+  try {
+    await api('/api/settings/i18n', { method: 'PUT', body: { overrides: { vi: {}, en: {} } } });
+    i18nData.overrides = { vi: {}, en: {} };
+    renderI18n(el('i18nFilter').value);
+    showAlert('i18nAlert', 'Đã về mặc định. Tải lại trang để áp dụng.', 'success');
+  } catch (e) { showAlert('i18nAlert', e.message); }
+});
+
 loadUsers().catch((e) => showAlert('alert', e.message));
 loadFields().catch((e) => showAlert('fieldsAlert', e.message));
 loadSystem().catch((e) => showAlert('sysAlert', e.message));
+loadI18n().catch((e) => showAlert('i18nAlert', e.message));
 </script>
 </body>
 </html>

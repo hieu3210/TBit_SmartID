@@ -12,18 +12,18 @@
 <div class="checkin-page">
   <img class="checkin-logo" src="/img/logo.svg" alt="TBit SmartID">
   <div class="event-name" id="eventName">…</div>
-  <div class="event-sub" id="eventSub">Nhập thông tin để xác nhận có mặt</div>
+  <div class="event-sub" id="eventSub" data-i18n="checkin.sub">Nhập thông tin để xác nhận có mặt</div>
 
   <!-- Form điểm danh / ghi danh (các ô nhập được sinh theo loại phiên) -->
   <div class="card" id="formCard">
     <div id="alert" class="alert hidden"></div>
     <form id="form">
       <div id="fieldsBox"></div>
-      <button class="btn full big" type="submit" id="btnSubmit">✓ Điểm danh</button>
+      <button class="btn full big" type="submit" id="btnSubmit" data-i18n="checkin.submit">✓ Điểm danh</button>
     </form>
     <div id="openSwitch" class="hidden" style="text-align:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
-      <span class="muted">Không có trong danh sách?</span><br>
-      <button class="link-btn" type="button" id="btnShowOpen">Ghi danh tại đây »</button>
+      <span class="muted" data-i18n="checkin.notInList">Không có trong danh sách?</span><br>
+      <button class="link-btn" type="button" id="btnShowOpen" data-i18n="checkin.regHere">Ghi danh tại đây »</button>
     </div>
   </div>
 
@@ -39,11 +39,12 @@
   <!-- Phiên đóng -->
   <div class="card success-screen hidden" id="closedCard">
     <div class="icon warn">!</div>
-    <h2>Phiên điểm danh chưa mở</h2>
-    <p class="sub">Phiên chưa bắt đầu hoặc đã kết thúc điểm danh.<br>Vui lòng liên hệ ban tổ chức.</p>
+    <h2 data-i18n="checkin.closedTitle">Phiên điểm danh chưa mở</h2>
+    <p class="sub" data-i18n="checkin.closedDesc">Phiên chưa bắt đầu hoặc đã kết thúc điểm danh. Vui lòng liên hệ ban tổ chức.</p>
   </div>
 </div>
 
+<script src="/js/i18n.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/shell.js"></script>
 <script>
@@ -66,25 +67,34 @@ function fieldInputs(fields, withRequiredMark) {
     <input id="f_${i}" data-key="${esc(f.key)}" ${INPUT_ATTRS[f.key] || 'maxlength="200"'} ${f.required ? 'required' : ''}>`).join('');
 }
 
+function reqMark(f) {
+  return f.required ? ' <span style="color:var(--red);">*</span>' : ` <span class="muted">${t('checkin.optional')}</span>`;
+}
+function fieldInputsL(fields, mark) {
+  return fields.map((f, i) => `
+    <label for="f_${i}">${esc(f.label)}${mark ? reqMark(f) : ''}</label>
+    <input id="f_${i}" data-key="${esc(f.key)}" ${INPUT_ATTRS[f.key] || 'maxlength="200"'} ${f.required ? 'required' : ''}>`).join('');
+}
+
 function renderForm() {
   if (info.type === 'open') {
-    el('eventSub').textContent = 'Điền thông tin để ghi danh tham dự sự kiện';
-    el('btnSubmit').textContent = '✓ Ghi danh';
-    el('fieldsBox').innerHTML = fieldInputs(info.fields, true);
+    el('eventSub').textContent = t('checkin.subOpen');
+    el('btnSubmit').textContent = t('checkin.submitReg');
+    el('fieldsBox').innerHTML = fieldInputsL(info.fields, true);
     return;
   }
   if (openMode) {
     // Nhánh ghi danh tự do trên phiên theo danh sách
-    el('eventSub').textContent = 'Bạn không có trong danh sách — điền thông tin để ghi danh';
-    el('btnSubmit').textContent = '✓ Ghi danh';
-    el('fieldsBox').innerHTML = fieldInputs(info.open_fields, true);
+    el('eventSub').textContent = t('checkin.subWalkin');
+    el('btnSubmit').textContent = t('checkin.submitReg');
+    el('fieldsBox').innerHTML = fieldInputsL(info.open_fields, true);
     el('openSwitch').classList.add('hidden');
     return;
   }
   // Điểm danh theo danh sách: chỉ nhập các trường bắt buộc do BTC cấu hình
-  el('eventSub').textContent = 'Nhập thông tin để xác nhận có mặt';
-  el('btnSubmit').textContent = '✓ Điểm danh';
-  el('fieldsBox').innerHTML = fieldInputs((info.checkin_fields || []).map((f) => ({ ...f, required: true })), false);
+  el('eventSub').textContent = t('checkin.sub');
+  el('btnSubmit').textContent = t('checkin.submit');
+  el('fieldsBox').innerHTML = fieldInputsL((info.checkin_fields || []).map((f) => ({ ...f, required: true })), false);
   el('openSwitch').classList.toggle('hidden', !info.allow_open);
 }
 
@@ -98,7 +108,7 @@ async function boot() {
     }
     renderForm();
   } catch (e) {
-    el('eventName').textContent = 'Không tìm thấy phiên điểm danh';
+    el('eventName').textContent = t('checkin.notFound');
     el('eventSub').textContent = '';
     hide('formCard');
   }
@@ -109,7 +119,7 @@ el('form').addEventListener('submit', async (ev) => {
   clearAlert('alert');
   const btn = el('btnSubmit');
   const btnLabel = btn.textContent;
-  btn.disabled = true; btn.textContent = 'Đang xử lý…';
+  btn.disabled = true; btn.textContent = t('checkin.processing');
   try {
     const values = {};
     el('fieldsBox').querySelectorAll('input[data-key]').forEach((inp) => { values[inp.dataset.key] = inp.value; });
@@ -120,7 +130,7 @@ el('form').addEventListener('submit', async (ev) => {
     el('successName').textContent = r.full_name;
     el('successUnit').textContent = r.unit || '';
     el('successMsg').textContent = r.message;
-    el('successTime').textContent = `Thời gian: ${r.checked_in_at}`;
+    el('successTime').textContent = `${t('checkin.time')}: ${r.checked_in_at}`;
     if (r.flagged) el('successIcon').classList.add('warn'), el('successIcon').textContent = '!';
   } catch (e) {
     showAlert('alert', e.message);

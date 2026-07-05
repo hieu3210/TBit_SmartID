@@ -12,10 +12,10 @@
 <div class="topbar">
   <a class="brand" href="/">📋 TBit SmartID</a>
   <div class="actions" id="topbarActions">
-    <a href="/users.html" id="linkUsers" class="hidden">Quản trị</a>
+    <a href="/users.html" id="linkUsers" class="hidden" data-i18n="nav.admin">Quản trị</a>
     <span id="whoami" class="hidden"></span>
-    <button class="link hidden" id="btnLogout">Đăng xuất</button>
-    <button class="btn small hidden" id="btnOpenLogin">Đăng nhập</button>
+    <button class="link hidden" id="btnLogout" data-i18n="nav.logout">Đăng xuất</button>
+    <button class="btn small hidden" id="btnOpenLogin" data-i18n="nav.login">Đăng nhập</button>
   </div>
 </div>
 
@@ -24,14 +24,14 @@
   <div class="landing">
     <section class="hero">
       <div>
-        <span class="hero-eyebrow">Giải pháp điểm danh sự kiện</span>
-        <h1>Điểm danh sự kiện <span class="accent">thông minh</span> bằng mã QR động</h1>
-        <p class="lead">TBit SmartID giúp ban tổ chức điểm danh nhanh, chính xác và chống gian lận cho hội nghị, sự kiện đông người — người tham dự chỉ cần quét QR bằng điện thoại, không cần cài ứng dụng.</p>
+        <span class="hero-eyebrow" data-i18n="landing.eyebrow">Giải pháp điểm danh sự kiện</span>
+        <h1 data-i18n-html="landing.title">Điểm danh sự kiện <span class="accent">thông minh</span> bằng mã QR động</h1>
+        <p class="lead" data-i18n="landing.lead">TBit SmartID giúp ban tổ chức điểm danh nhanh, chính xác và chống gian lận cho hội nghị, sự kiện đông người — người tham dự chỉ cần quét QR bằng điện thoại, không cần cài ứng dụng.</p>
         <div class="hero-cta">
-          <button class="btn big" id="btnHeroLogin">Đăng nhập hệ thống</button>
-          <button class="btn secondary big" data-modal="guideModal" type="button">Xem hướng dẫn</button>
+          <button class="btn big" id="btnHeroLogin" data-i18n="landing.loginBtn">Đăng nhập hệ thống</button>
+          <button class="btn secondary big" data-modal="guideModal" type="button" data-i18n="landing.guideBtn">Xem hướng dẫn</button>
         </div>
-        <p class="hero-note">Chưa có tài khoản? <a href="#contact">Liên hệ tác giả</a> để được cấp quyền sử dụng giải pháp.</p>
+        <p class="hero-note" data-i18n-html="landing.note">Chưa có tài khoản? <a href="#contact">Liên hệ tác giả</a> để được cấp quyền sử dụng giải pháp.</p>
       </div>
       <svg class="hero-illus" viewBox="0 0 460 380" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Minh hoạ điểm danh QR">
         <defs>
@@ -70,32 +70,32 @@
     </section>
 
     <section class="section">
-      <h2 class="section-title">Vì sao chọn TBit SmartID?</h2>
-      <p class="section-sub">Đơn giản cho người tham dự, mạnh mẽ cho ban tổ chức.</p>
+      <h2 class="section-title" data-i18n="landing.features.title">Vì sao chọn TBit SmartID?</h2>
+      <p class="section-sub" data-i18n="landing.features.sub">Đơn giản cho người tham dự, mạnh mẽ cho ban tổ chức.</p>
       <div class="cards-grid">
-        <div class="info-card"><span class="ic">📱</span><h3>Không cần cài app</h3><p>Người tham dự quét QR bằng camera điện thoại và xác nhận trong vài giây.</p></div>
-        <div class="info-card"><span class="ic">🔒</span><h3>Chống điểm danh hộ</h3><p>Mã QR tự đổi liên tục, ràng buộc thiết bị và giới hạn tần suất chống gian lận.</p></div>
-        <div class="info-card"><span class="ic">📝</span><h3>Hai hình thức</h3><p>Điểm danh theo danh sách có sẵn hoặc ghi danh tự do cho sự kiện mở.</p></div>
-        <div class="info-card"><span class="ic">📊</span><h3>Thống kê tức thì</h3><p>Tỉ lệ tham gia, danh sách có mặt/vắng mặt và xuất Excel ngay khi kết thúc.</p></div>
-        <div class="info-card"><span class="ic">⏰</span><h3>Tự kết thúc &amp; email</h3><p>Hẹn giờ đóng điểm danh; hệ thống tự tổng hợp và gửi email kết quả cho bạn.</p></div>
-        <div class="info-card"><span class="ic">🗂️</span><h3>Lưu &amp; dùng lại</h3><p>Lưu danh sách đại biểu để tái sử dụng; thêm/sửa thành viên mọi lúc.</p></div>
+        <div class="info-card"><span class="ic">📱</span><h3 data-i18n="landing.f1.title">Không cần cài app</h3><p data-i18n="landing.f1.desc">Người tham dự quét QR bằng camera điện thoại và xác nhận trong vài giây.</p></div>
+        <div class="info-card"><span class="ic">🔒</span><h3 data-i18n="landing.f2.title">Chống điểm danh hộ</h3><p data-i18n="landing.f2.desc">Mã QR tự đổi liên tục, ràng buộc thiết bị và giới hạn tần suất chống gian lận.</p></div>
+        <div class="info-card"><span class="ic">📝</span><h3 data-i18n="landing.f3.title">Hai hình thức</h3><p data-i18n="landing.f3.desc">Điểm danh theo danh sách có sẵn hoặc ghi danh tự do cho sự kiện mở.</p></div>
+        <div class="info-card"><span class="ic">📊</span><h3 data-i18n="landing.f4.title">Thống kê tức thì</h3><p data-i18n="landing.f4.desc">Tỉ lệ tham gia, danh sách có mặt/vắng mặt và xuất Excel ngay khi kết thúc.</p></div>
+        <div class="info-card"><span class="ic">⏰</span><h3 data-i18n="landing.f5.title">Tự kết thúc &amp; email</h3><p data-i18n="landing.f5.desc">Hẹn giờ đóng điểm danh; hệ thống tự tổng hợp và gửi email kết quả cho bạn.</p></div>
+        <div class="info-card"><span class="ic">🗂️</span><h3 data-i18n="landing.f6.title">Lưu &amp; dùng lại</h3><p data-i18n="landing.f6.desc">Lưu danh sách người tham dự để tái sử dụng; thêm/sửa thành viên mọi lúc.</p></div>
       </div>
     </section>
 
     <section class="section">
-      <h2 class="section-title">Chỉ 3 bước</h2>
-      <p class="section-sub">Từ chuẩn bị đến báo cáo, tất cả trong một hệ thống.</p>
+      <h2 class="section-title" data-i18n="landing.steps.title">Chỉ 3 bước</h2>
+      <p class="section-sub" data-i18n="landing.steps.sub">Từ chuẩn bị đến báo cáo, tất cả trong một hệ thống.</p>
       <div class="steps">
-        <div class="step-card"><div class="n">1</div><h3>Chuẩn bị</h3><p>Tạo phiên, tải danh sách từ Excel hoặc mở ghi danh tự do. Cấu hình trường thông tin theo nhu cầu.</p></div>
-        <div class="step-card"><div class="n">2</div><h3>Điểm danh</h3><p>Chiếu mã QR lên màn hình; người tham dự quét và xác nhận. Bộ đếm cập nhật trực tiếp.</p></div>
-        <div class="step-card"><div class="n">3</div><h3>Tổng hợp</h3><p>Kết thúc phiên để xem thống kê, xuất Excel và nhận email báo cáo tự động.</p></div>
+        <div class="step-card"><div class="n">1</div><h3 data-i18n="landing.s1.title">Chuẩn bị</h3><p data-i18n="landing.s1.desc">Tạo phiên, tải danh sách từ Excel hoặc mở ghi danh tự do. Cấu hình trường thông tin theo nhu cầu.</p></div>
+        <div class="step-card"><div class="n">2</div><h3 data-i18n="landing.s2.title">Điểm danh</h3><p data-i18n="landing.s2.desc">Chiếu mã QR lên màn hình; người tham dự quét và xác nhận. Bộ đếm cập nhật trực tiếp.</p></div>
+        <div class="step-card"><div class="n">3</div><h3 data-i18n="landing.s3.title">Tổng hợp</h3><p data-i18n="landing.s3.desc">Kết thúc phiên để xem thống kê, xuất Excel và nhận email báo cáo tự động.</p></div>
       </div>
     </section>
 
     <section class="section" id="contact">
       <div class="contact-banner">
-        <h2>Nhận tài khoản sử dụng giải pháp</h2>
-        <p>Liên hệ tác giả <b>Nguyễn Duy Hiếu</b> để được cấp tài khoản và hỗ trợ triển khai.</p>
+        <h2 data-i18n="landing.contact.title">Nhận tài khoản sử dụng giải pháp</h2>
+        <p data-i18n="landing.contact.desc">Liên hệ tác giả Nguyễn Duy Hiếu để được cấp tài khoản và hỗ trợ triển khai.</p>
         <div class="contact-rows">
           <a class="contact-pill" href="tel:0972782203">📞 Điện thoại / Zalo: 0972782203</a>
           <a class="contact-pill" href="mailto:hieund@utb.edu.vn">✉️ hieund@utb.edu.vn</a>
@@ -111,17 +111,17 @@
   <!-- Đổi mật khẩu bắt buộc -->
   <div id="changePassView" class="hidden" style="max-width:400px;margin:48px auto 0;">
     <div class="card">
-      <h2>Đổi mật khẩu</h2>
-      <p class="muted" style="margin-bottom:14px;">Bạn cần đổi mật khẩu trước khi sử dụng hệ thống.</p>
+      <h2 data-i18n="cp.title">Đổi mật khẩu</h2>
+      <p class="muted" style="margin-bottom:14px;" data-i18n="cp.desc">Bạn cần đổi mật khẩu trước khi sử dụng hệ thống.</p>
       <div id="cpAlert" class="alert hidden"></div>
       <form id="cpForm">
-        <label>Mật khẩu hiện tại</label>
+        <label data-i18n="cp.old">Mật khẩu hiện tại</label>
         <input id="cpOld" type="password" required>
-        <label>Mật khẩu mới (ít nhất 6 ký tự)</label>
+        <label data-i18n="cp.new">Mật khẩu mới (ít nhất 6 ký tự)</label>
         <input id="cpNew" type="password" minlength="6" required>
-        <label>Nhập lại mật khẩu mới</label>
+        <label data-i18n="cp.new2">Nhập lại mật khẩu mới</label>
         <input id="cpNew2" type="password" minlength="6" required>
-        <button class="btn full" type="submit">Cập nhật mật khẩu</button>
+        <button class="btn full" type="submit" data-i18n="cp.submit">Cập nhật mật khẩu</button>
       </form>
     </div>
   </div>
@@ -129,49 +129,49 @@
   <!-- Danh sách phiên -->
   <div id="sessionsView" class="hidden">
     <div class="row" style="margin-bottom:14px;">
-      <h2 style="font-size:20px;">Phiên điểm danh</h2>
+      <h2 style="font-size:20px;" data-i18n="sessions.title">Phiên điểm danh</h2>
       <div class="spacer"></div>
-      <a class="btn secondary small" href="/api/sessions/template">⬇ Tải template Excel</a>
-      <button class="btn small" id="btnNewSession">＋ Tạo phiên mới</button>
+      <a class="btn secondary small" href="/api/sessions/template" data-i18n="sessions.template">⬇ Tải template Excel</a>
+      <button class="btn small" id="btnNewSession" data-i18n="sessions.new">＋ Tạo phiên mới</button>
     </div>
     <div id="newSessionForm" class="card hidden">
-      <label>Tên sự kiện</label>
-      <input id="newSessionName" placeholder="VD: Hội nghị tổng kết năm 2026" maxlength="120">
-      <label>Loại phiên</label>
+      <label data-i18n="create.name">Tên sự kiện</label>
+      <input id="newSessionName" data-i18n-ph="create.namePh" placeholder="VD: Hội nghị tổng kết năm 2026" maxlength="120">
+      <label data-i18n="create.type">Loại phiên</label>
       <label class="radio"><input type="radio" name="sessType" value="list" checked>
-        <span><b>Theo danh sách đã có</b> — upload danh sách Excel, đại biểu quét QR để xác nhận có mặt</span></label>
+        <span><b data-i18n="create.typeList">Theo danh sách đã có</b> <span data-i18n="create.typeListDesc">— upload danh sách Excel, người tham dự quét QR để xác nhận có mặt</span></span></label>
       <label class="radio"><input type="radio" name="sessType" value="open">
-        <span><b>Không theo danh sách (ghi danh tự do)</b> — người tham dự quét QR và tự điền thông tin ghi danh</span></label>
+        <span><b data-i18n="create.typeOpen">Không theo danh sách (ghi danh tự do)</b> <span data-i18n="create.typeOpenDesc">— người tham dự quét QR và tự điền thông tin ghi danh</span></span></label>
 
       <div id="listConfig" style="background:var(--bg);border-radius:10px;padding:12px 14px;margin:4px 0 12px;">
-        <label style="margin-bottom:6px;">Điểm danh bằng cách nhập <span class="muted">(chọn ≥1 trường định danh)</span></label>
+        <label style="margin-bottom:6px;"><span data-i18n="create.checkinBy">Điểm danh bằng cách nhập</span> <span class="muted" data-i18n="create.checkinByHint">(chọn ≥1 trường định danh)</span></label>
         <div class="row" id="checkinFieldsBox" style="gap:14px;"></div>
         <label class="radio" style="margin:10px 0 0;"><input type="checkbox" id="allowOpen">
-          <span><b>Cho phép ghi danh tự do</b> — người không có trong danh sách vẫn quét QR và tự ghi danh</span></label>
+          <span><b data-i18n="create.allowOpen">Cho phép ghi danh tự do</b> <span data-i18n="create.allowOpenDesc">— người không có trong danh sách vẫn quét QR và tự ghi danh</span></span></label>
       </div>
 
       <div class="row" style="margin-top:2px;">
         <div style="flex:1;min-width:200px;">
-          <label>Tự kết thúc lúc <span class="muted">(tuỳ chọn)</span></label>
+          <label><span data-i18n="create.endsAt">Tự kết thúc lúc</span> <span class="muted" data-i18n="create.optional">(tuỳ chọn)</span></label>
           <input id="newEndsAt" type="datetime-local">
         </div>
         <div style="flex:1;min-width:200px;">
-          <label>Mã QR</label>
+          <label data-i18n="create.qr">Mã QR</label>
           <select id="newQrMode">
-            <option value="">Đổi theo mặc định hệ thống</option>
-            <option value="custom">Đổi theo số giây tự chọn…</option>
-            <option value="0">Cố định (không đổi mã)</option>
+            <option value="" data-i18n="create.qrDefault">Đổi theo mặc định hệ thống</option>
+            <option value="custom" data-i18n="create.qrCustom">Đổi theo số giây tự chọn…</option>
+            <option value="0" data-i18n="create.qrFixed">Cố định (không đổi mã)</option>
           </select>
         </div>
         <div style="min-width:140px;" id="qrSecondsBox" hidden>
-          <label>Số giây (5–300)</label>
-          <input id="newQrSeconds" type="number" min="5" max="300" value="10">
+          <label data-i18n="create.qrSeconds">Số giây (5–300)</label>
+          <input id="newQrSeconds" type="number" min="5" max="300" value="30">
         </div>
       </div>
-      <p class="muted" style="margin-bottom:10px;">Hết giờ hẹn, hệ thống tự kết thúc điểm danh và gửi email tổng hợp cho bạn. Mã QR cố định tiện in ra giấy nhưng giảm khả năng chống điểm danh hộ.</p>
+      <p class="muted" style="margin-bottom:10px;" data-i18n="create.note">Nếu không chọn thời gian tự kết thúc, phiên chỉ kết thúc khi bạn bấm nút Kết thúc. Khi có hẹn giờ, hết giờ hệ thống tự kết thúc và gửi email tổng hợp cho bạn. Mã QR cố định tiện in ra giấy nhưng giảm khả năng chống điểm danh hộ.</p>
       <div class="row">
-        <button class="btn" id="btnCreateSession">Tạo phiên</button>
-        <button class="btn secondary" id="btnCancelCreate">Huỷ</button>
+        <button class="btn" id="btnCreateSession" data-i18n="create.submit">Tạo phiên</button>
+        <button class="btn secondary" id="btnCancelCreate" data-i18n="create.cancel">Huỷ</button>
       </div>
     </div>
     <div id="listAlert" class="alert hidden"></div>
@@ -185,35 +185,36 @@
   <div class="modal" style="max-width:420px;">
     <div class="modal-hero">
       <img src="/img/logo.svg" alt="TBit">
-      <div><h2>Đăng nhập hệ thống</h2><p>TBit SmartID — Điểm danh sự kiện</p></div>
+      <div><h2 data-i18n="login.title">Đăng nhập hệ thống</h2><p data-i18n="login.sub">TBit SmartID — Điểm danh sự kiện</p></div>
       <button class="modal-close" type="button" data-close aria-label="Đóng">×</button>
     </div>
     <div class="modal-body">
       <div id="loginAlert" class="alert hidden"></div>
       <form id="loginForm">
-        <label for="username">Tên đăng nhập</label>
+        <label for="username" data-i18n="login.username">Tên đăng nhập</label>
         <input id="username" autocomplete="username" required>
-        <label for="password">Mật khẩu</label>
+        <label for="password" data-i18n="login.password">Mật khẩu</label>
         <input id="password" type="password" autocomplete="current-password" required>
-        <button class="btn full big" type="submit">Đăng nhập</button>
+        <button class="btn full big" type="submit" data-i18n="login.submit">Đăng nhập</button>
       </form>
       <p style="text-align:center;margin-top:12px;">
-        <button class="link-btn" type="button" id="btnForgot">Quên mật khẩu?</button>
+        <button class="link-btn" type="button" id="btnForgot" data-i18n="login.forgot">Quên mật khẩu?</button>
       </p>
       <form id="forgotForm" class="hidden" style="margin-top:8px;">
-        <label for="forgotUser">Tên đăng nhập hoặc email</label>
+        <label for="forgotUser" data-i18n="login.forgotUser">Tên đăng nhập hoặc email</label>
         <div class="row">
           <input id="forgotUser" style="flex:1;margin-bottom:0;" required>
-          <button class="btn secondary" type="submit">Gửi link</button>
+          <button class="btn secondary" type="submit" data-i18n="login.forgotSubmit">Gửi link</button>
         </div>
       </form>
-      <p class="muted" style="text-align:center;margin-top:14px;font-size:13px;">
-        Chưa có tài khoản? Liên hệ Zalo <b>0972782203</b> hoặc email <b>hieund@utb.edu.vn</b>
+      <p class="muted" style="text-align:center;margin-top:14px;font-size:13px;" data-i18n="login.noAccount">
+        Chưa có tài khoản? Liên hệ Zalo 0972782203 hoặc email hieund@utb.edu.vn
       </p>
     </div>
   </div>
 </div>
 
+<script src="/js/i18n.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/shell.js"></script>
 <script>
@@ -310,8 +311,10 @@ sessTypeInputs().forEach((r) => r.addEventListener('change', onTypeChange));
 async function loadCheckinFieldOptions() {
   try {
     const cfg = await api('/api/settings/list-fields');
+    const hasPhone = cfg.columns.some((c) => c.key === 'phone');
     el('checkinFieldsBox').innerHTML = cfg.columns.map((c) => {
-      const def = c.key === 'cccd' || c.key === 'phone';
+      // Mặc định chỉ cần Số điện thoại (nếu không có SĐT thì Số CCCD)
+      const def = hasPhone ? c.key === 'phone' : c.key === 'cccd';
       return `<label class="radio" style="margin:0;"><input type="checkbox" class="ckField" value="${esc(c.key)}" ${def ? 'checked' : ''}> <span>${esc(c.label)}</span></label>`;
     }).join('');
   } catch (e) { el('checkinFieldsBox').innerHTML = '<span class="muted">Không tải được cấu hình trường</span>'; }
@@ -345,7 +348,7 @@ async function loadSessions() {
   const sessions = await api('/api/sessions');
   const list = el('sessionList');
   if (!sessions.length) {
-    list.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);">Chưa có phiên điểm danh nào.<br>Bấm <b>＋ Tạo phiên mới</b> để bắt đầu.</div>';
+    list.innerHTML = `<div class="card" style="text-align:center;color:var(--gray);">${t('sessions.empty')}<br>${t('sessions.emptyHint')}</div>`;
     return;
   }
   list.innerHTML = sessions.map((s) => `
@@ -353,15 +356,15 @@ async function loadSessions() {
       <div class="row">
         <div>
           <div style="font-weight:700;font-size:16px;">${esc(s.name)}</div>
-          <div class="muted">Tạo ${esc(s.created_at)}${me.role === 'admin' ? ' · ' + esc(s.owner) : ''}</div>
+          <div class="muted">${esc(s.created_at)}${me.role === 'admin' ? ' · ' + esc(s.owner) : ''}</div>
         </div>
         <div class="spacer"></div>
         <div style="text-align:right;">
-          ${s.type === 'open' ? '<span class="badge supplement">Ghi danh</span> ' : (s.allow_open ? '<span class="badge supplement">Có ghi danh</span> ' : '')}<span class="badge ${s.status}">${STATUS_LABEL[s.status]}</span>
+          ${s.type === 'open' ? `<span class="badge supplement">${t('badge.reg')}</span> ` : (s.allow_open ? `<span class="badge supplement">${t('badge.hasReg')}</span> ` : '')}<span class="badge ${s.status}">${STATUS_LABEL[s.status]}</span>
           <div class="muted mt" style="margin-top:6px;">
             ${s.type === 'open'
-              ? (s.stats.total ? `Đã ghi danh <b>${s.stats.present}</b>` : 'Chưa có người ghi danh')
-              : (s.stats.total ? `Có mặt <b>${s.stats.present}</b>/${s.stats.total}` : 'Chưa có danh sách')}
+              ? (s.stats.total ? `${t('sessions.registered')} <b>${s.stats.present}</b>` : t('sessions.noReg'))
+              : (s.stats.total ? `${t('sessions.present')} <b>${s.stats.present}</b>/${s.stats.total}` : t('sessions.noList'))}
           </div>
         </div>
       </div>

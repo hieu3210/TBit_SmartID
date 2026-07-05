@@ -1,6 +1,6 @@
 const { getSetting, setSetting } = require('../db');
 
-const ENV_QR_SECONDS = parseInt(process.env.QR_ROTATE_SECONDS || '10', 10);
+const ENV_QR_SECONDS = parseInt(process.env.QR_ROTATE_SECONDS || '30', 10);
 
 // Chu kỳ đổi QR mặc định của hệ thống (admin đặt trong Quản trị; fallback biến môi trường)
 async function systemQrSeconds() {

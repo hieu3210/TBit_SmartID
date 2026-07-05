@@ -3,8 +3,22 @@ const { requireAuth, requireAdmin } = require('../middleware');
 const { getListFields, validateListFields, saveListFields, enabledColumns } = require('../lib/fields');
 const { systemQrSeconds, saveSystemQrSeconds, getSmtp, saveSmtp } = require('../lib/sysconfig');
 const { sendMail, emailLayout } = require('../lib/mailer');
+const { LANGS, DEFAULTS, getOverrides, saveOverrides } = require('../lib/i18n');
 
 const router = express.Router();
+
+// Bản dịch cho trình sửa của admin (mặc định + ghi đè)
+router.get('/i18n', requireAdmin, async (req, res, next) => {
+  try {
+    res.json({ langs: LANGS, defaults: DEFAULTS, overrides: await getOverrides() });
+  } catch (e) { next(e); }
+});
+router.put('/i18n', requireAdmin, async (req, res, next) => {
+  try {
+    await saveOverrides((req.body || {}).overrides || {});
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
 
 // Cấu hình trường danh sách: ai đăng nhập cũng xem được (để dựng cột xem trước / form)
 router.get('/list-fields', requireAuth, async (req, res, next) => {

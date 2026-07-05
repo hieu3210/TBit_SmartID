@@ -117,11 +117,11 @@
     <div class="card">
       <div class="donut-wrap" id="donutWrap">
         <svg class="donut" viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r="50" fill="none" stroke="var(--border)" stroke-width="14"/>
-          <circle id="donutArc" cx="60" cy="60" r="50" fill="none" stroke="var(--green)" stroke-width="14"
-                  stroke-linecap="round" stroke-dasharray="0 314.16" transform="rotate(-90 60 60)"/>
-          <text class="pct" x="60" y="64" text-anchor="middle" id="donutPct">0%</text>
-          <text class="sub" x="60" y="80" text-anchor="middle">tham gia</text>
+          <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" stroke-width="11"/>
+          <circle id="donutArc" cx="60" cy="60" r="52" fill="none" stroke="var(--green)" stroke-width="11"
+                  stroke-linecap="round" stroke-dasharray="0 326.73" transform="rotate(-90 60 60)"/>
+          <text class="pct" x="60" y="62" text-anchor="middle" id="donutPct">0%</text>
+          <text class="sub" x="60" y="78" text-anchor="middle" id="donutSub">tham gia</text>
         </svg>
       </div>
       <div class="stat-row">
@@ -213,6 +213,7 @@
   </div>
 </div>
 
+<script src="/js/i18n.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/shell.js"></script>
 <script>
@@ -246,6 +247,10 @@ async function load() {
       el('manualTitle').textContent = 'Danh sách đã ghi danh';
       el('manualSearch').placeholder = 'Tìm theo tên / đơn vị…';
       el('btnClose').textContent = '⏹ Kết thúc ghi danh';
+      // Cho phép người quản lý ghi danh hộ; trường theo form ghi danh của phiên
+      show('btnAddMemberLive');
+      customCols = (sess.fields || []).filter((f) => !['cccd', 'full_name', 'unit', 'phone', 'email'].includes(f.key))
+        .map((f) => ({ key: f.key, label: f.label }));
     } else {
       // Phiên danh sách: cho phép thêm người và bật/tắt ghi danh tự do ngay lúc đang điểm danh
       show('btnAddMemberLive');
@@ -521,8 +526,8 @@ function startQrPolling() {
       el('liveCounter').textContent = q.stats.present;
       el('liveTotal').textContent = q.stats.total;
       renderFlagged();
-      // Cập nhật trực tiếp danh sách (trừ lúc đang tìm kiếm)
-      if (isOpenType() && !el('manualSearch').value && document.activeElement !== el('manualSearch')) renderManualList();
+      // Cập nhật trực tiếp danh sách sau mỗi lượt điểm danh/ghi danh (trừ lúc đang gõ tìm kiếm)
+      if (!el('manualSearch').value && document.activeElement !== el('manualSearch')) renderManualList();
     } catch (e) {
       // Phiên vừa kết thúc (tự động hoặc ở tab khác) → nạp lại trạng thái
       load();
@@ -540,14 +545,20 @@ async function renderFlagged() {
   const rows = await api(`/api/sessions/${sessionId}/attendees?flag=review`);
   el('flaggedCard').classList.toggle('hidden', rows.length === 0);
   el('flaggedCount').textContent = rows.length;
-  el('flaggedTable').querySelector('tbody').innerHTML = rows.map((a) => `
+  el('flaggedTable').querySelector('tbody').innerHTML = rows.map((a) => {
+    const firstName = a.device_first_name || a.device_first_phone || a.device_first_cccd;
+    const dupNote = firstName
+      ? `<br><span class="muted">⚠ Cùng thiết bị đã điểm danh cho <b>${esc(firstName)}</b> trước đó</span>`
+      : '';
+    return `
     <tr>
-      <td><b>${esc(nameOf(a))}</b><br><span class="muted">${esc(a.unit || '')} · ${esc(a.checked_in_at || '')}</span></td>
+      <td><b>${esc(nameOf(a))}</b><br><span class="muted">${esc([a.unit, a.checked_in_at].filter(Boolean).join(' · '))}</span>${dupNote}</td>
       <td style="text-align:right;white-space:nowrap;">
         <button class="btn green small" onclick="resolveFlag(${a.id},'approve')">Duyệt</button>
         <button class="btn danger small" onclick="resolveFlag(${a.id},'reject')">Từ chối</button>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 async function resolveFlag(aid, action) {
@@ -626,7 +637,7 @@ function renderStats(st) {
   el('stAbsent').textContent = st.absent;
   el('stTotal').textContent = st.total;
   el('donutPct').textContent = `${st.rate}%`;
-  const circumference = 2 * Math.PI * 50;
+  const circumference = 2 * Math.PI * 52;
   el('donutArc').setAttribute('stroke-dasharray', `${(st.rate / 100) * circumference} ${circumference}`);
 }
 

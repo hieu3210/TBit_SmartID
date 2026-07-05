@@ -109,7 +109,7 @@ ALTER TABLE attendees ADD COLUMN IF NOT EXISTS self_registered BOOLEAN NOT NULL 
 -- Họ và tên không còn bắt buộc (có thể điểm danh chỉ bằng SĐT/CCCD)
 ALTER TABLE attendees ALTER COLUMN full_name DROP NOT NULL;
 
--- Danh sách đại biểu lưu sẵn để dùng lại
+-- Danh sách người tham dự lưu sẵn để dùng lại
 CREATE TABLE IF NOT EXISTS saved_lists (
   id SERIAL PRIMARY KEY,
   owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

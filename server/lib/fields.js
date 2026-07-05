@@ -126,11 +126,12 @@ function enabledColumns(listFields) {
 
 /* ===== Trường bắt buộc nhập ĐỂ ĐIỂM DANH (phiên theo danh sách) ===== */
 
-// Mặc định: CCCD + SĐT nếu đang bật, nếu không lấy định danh còn lại
+// Mặc định: chỉ cần Số điện thoại (nếu bật), nếu không thì Số CCCD
 function defaultCheckinFields(listFields) {
   const enabled = new Set(listFields.filter((f) => f.enabled).map((f) => f.key));
-  const picks = ['cccd', 'phone'].filter((k) => enabled.has(k));
-  return picks.length ? picks : [[...enabled][0]];
+  if (enabled.has('phone')) return ['phone'];
+  if (enabled.has('cccd')) return ['cccd'];
+  return [[...enabled][0]];
 }
 
 // input = mảng key; giữ các key đang bật, đảm bảo ≥1 định danh (cccd/phone)
@@ -169,7 +170,6 @@ const OPEN_CORE_FIELDS = [
 const DEFAULT_OPEN_FIELDS = [
   { key: 'full_name', label: 'Họ và tên', required: true },
   { key: 'phone', label: 'Số điện thoại', required: true },
-  { key: 'unit', label: 'Đơn vị', required: false },
 ];
 
 function validateOpenFields(input) {

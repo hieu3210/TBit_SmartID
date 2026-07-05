@@ -284,10 +284,24 @@ router.get('/:id/qr', loadOwnedSession, async (req, res, next) => {
 router.get('/:id/attendees', loadOwnedSession, async (req, res, next) => {
   try {
     const { status, q, flag } = req.query;
+    // Với lượt cần duyệt (trùng thiết bị): kèm thông tin người đã điểm danh ĐẦU TIÊN trên thiết bị đó
+    if (flag === 'review') {
+      const { rows } = await query(
+        `SELECT a.*,
+                fb.full_name AS device_first_name, fb.phone AS device_first_phone, fb.cccd AS device_first_cccd
+         FROM attendees a
+         LEFT JOIN LATERAL (
+           SELECT b.full_name, b.phone, b.cccd FROM attendees b
+           WHERE b.session_id = a.session_id AND b.device_id = a.device_id
+             AND b.id <> a.id AND b.status = 'present' AND b.flag = 'ok'
+           ORDER BY b.checked_in_at ASC LIMIT 1
+         ) fb ON true
+         WHERE a.session_id = $1 AND a.flag = 'review' ORDER BY a.stt`, [req.attSession.id]);
+      return res.json(rows);
+    }
     let sql = 'SELECT * FROM attendees WHERE session_id = $1';
     const params = [req.attSession.id];
     if (status === 'present' || status === 'absent') { params.push(status); sql += ` AND status = $${params.length}`; }
-    if (flag === 'review') sql += " AND flag = 'review'";
     if (q) {
       params.push(`%${q}%`);
       sql += ` AND (full_name ILIKE $${params.length} OR cccd LIKE $${params.length} OR unit ILIKE $${params.length} OR phone LIKE $${params.length})`;
@@ -377,21 +391,37 @@ function canEditMembers(s) {
   return s.type !== 'open' && ['draft', 'open', 'supplement'].includes(s.status);
 }
 
-// Thêm thành viên (khi nháp hoặc đang điểm danh)
+// Thêm thành viên (phiên danh sách: khi nháp/đang điểm danh; phiên ghi danh: thêm người ghi danh khi đang mở)
 router.post('/:id/attendees', loadOwnedSession, async (req, res, next) => {
   try {
     const s = req.attSession;
-    if (!canEditMembers(s)) return res.status(400).json({ error: 'Phiên không cho phép sửa danh sách lúc này' });
+    const isOpen = s.type === 'open';
+    if (isOpen) {
+      if (s.status !== 'open' && s.status !== 'supplement') return res.status(400).json({ error: 'Chỉ thêm người khi đang ghi danh' });
+    } else if (!canEditMembers(s)) {
+      return res.status(400).json({ error: 'Phiên không cho phép sửa danh sách lúc này' });
+    }
     const { member, error } = parseMember(req.body);
     if (error) return res.status(400).json({ error });
-    const dup = await query('SELECT 1 FROM attendees WHERE session_id = $1 AND cccd = $2', [s.id, member.cccd]);
-    if (dup.rows.length) return res.status(400).json({ error: 'CCCD này đã có trong danh sách' });
-    await query(
-      `INSERT INTO attendees (session_id, stt, cccd, full_name, unit, phone, email, extra)
-       VALUES ($1, (SELECT COALESCE(MAX(stt), 0) + 1 FROM attendees WHERE session_id = $1), $2, $3, $4, $5, $6, $7)`,
-      [s.id, member.cccd, member.full_name, member.unit, member.phone, member.email,
-        member.extra ? JSON.stringify(member.extra) : null]);
-    res.json({ ok: true });
+    if (member.cccd) {
+      const dup = await query('SELECT 1 FROM attendees WHERE session_id = $1 AND cccd = $2', [s.id, member.cccd]);
+      if (dup.rows.length) return res.status(400).json({ error: 'CCCD này đã có trong danh sách' });
+    }
+    if (isOpen) {
+      // Người quản lý ghi danh hộ khi đang mở phiên: đánh dấu có mặt, hình thức BTC xác nhận
+      await query(
+        `INSERT INTO attendees (session_id, stt, cccd, full_name, unit, phone, email, extra, status, checked_in_at, checkin_type, self_registered)
+         VALUES ($1, (SELECT COALESCE(MAX(stt), 0) + 1 FROM attendees WHERE session_id = $1), $2, $3, $4, $5, $6, $7, 'present', $8, 'manual', true)`,
+        [s.id, member.cccd, member.full_name, member.unit, member.phone, member.email,
+          member.extra ? JSON.stringify(member.extra) : null, nowVN()]);
+    } else {
+      await query(
+        `INSERT INTO attendees (session_id, stt, cccd, full_name, unit, phone, email, extra)
+         VALUES ($1, (SELECT COALESCE(MAX(stt), 0) + 1 FROM attendees WHERE session_id = $1), $2, $3, $4, $5, $6, $7)`,
+        [s.id, member.cccd, member.full_name, member.unit, member.phone, member.email,
+          member.extra ? JSON.stringify(member.extra) : null]);
+    }
+    res.json({ ok: true, stats: await statsFor(s.id) });
   } catch (e) { next(e); }
 });
 

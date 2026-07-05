@@ -34,6 +34,10 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+const _t = (k, fb) => (window.t ? window.t(k, fb) : fb);
 const STATUS_LABEL = {
-  draft: 'Chuẩn bị', open: 'Đang điểm danh', closed: 'Đã kết thúc', supplement: 'Điểm danh bổ sung',
+  draft: _t('status.draft', 'Chuẩn bị'),
+  open: _t('status.open', 'Đang điểm danh'),
+  closed: _t('status.closed', 'Đã kết thúc'),
+  supplement: _t('status.supplement', 'Điểm danh bổ sung'),
 };

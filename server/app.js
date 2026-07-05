@@ -27,6 +27,7 @@ app.use(async (req, res, next) => {
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+app.use(require('./routes/i18n'));
 app.use('/api', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/settings', require('./routes/settings'));
@@ -34,7 +35,7 @@ app.use('/api/lists', require('./routes/lists'));
 app.use('/api/sessions', require('./routes/sessions'));
 app.use(require('./routes/checkin'));
 
-// Trang điểm danh của đại biểu (link trong QR)
+// Trang điểm danh của người tham dự (link trong QR)
 app.get('/checkin/:token', async (req, res, next) => {
   try {
     const { rows } = await query('SELECT 1 FROM sessions WHERE token = $1', [req.params.token]);
