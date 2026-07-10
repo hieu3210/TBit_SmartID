@@ -25,10 +25,10 @@
       .map((l) => `<button type="button" data-lang="${l}" class="${l === curLang ? 'active' : ''}">${LANG_META[l].flag} ${LANG_META[l].label}</button>`).join('');
     // Thứ tự: Giới thiệu → Hướng dẫn → Ngôn ngữ → Sáng/Tối
     nav.innerHTML = `
-      <button class="link" type="button" data-modal="aboutModal">${t('nav.about', 'Giới thiệu')}</button>
-      <button class="link" type="button" data-modal="guideModal">${t('nav.guide', 'Hướng dẫn')}</button>
+      <button class="link" type="button" data-modal="aboutModal">ℹ️ ${t('nav.about', 'Giới thiệu')}</button>
+      <button class="link" type="button" data-modal="guideModal">📖 ${t('nav.guide', 'Hướng dẫn')}</button>
       <div class="lang-switch">
-        <button class="link lang-btn" id="langBtn" type="button">${LANG_META[curLang].flag} ${LANG_META[curLang].label} ▾</button>
+        <button class="link lang-btn" id="langBtn" type="button" aria-label="${LANG_META[curLang].label}" title="${LANG_META[curLang].label}">${LANG_META[curLang].flag}</button>
         <div class="lang-menu hidden" id="langMenu">${langItems}</div>
       </div>
       <button class="link theme-toggle" type="button" id="btnTheme" title="${t('nav.theme', 'Chế độ sáng/tối')}" aria-label="${t('nav.theme', 'Chế độ sáng/tối')}"></button>`;

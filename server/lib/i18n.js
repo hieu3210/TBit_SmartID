@@ -9,10 +9,10 @@ const DEFAULTS = {
     'app.tagline': 'Điểm danh sự kiện thông minh',
     'nav.about': 'Giới thiệu',
     'nav.guide': 'Hướng dẫn',
-    'nav.admin': 'Quản trị',
+    'nav.admin': '⚙️ Quản trị',
     'nav.logout': 'Đăng xuất',
-    'nav.login': 'Đăng nhập',
-    'nav.hello': 'Xin chào',
+    'nav.login': '🔑 Đăng nhập',
+    'nav.hello': '👋 Xin chào',
     'nav.theme': 'Chế độ sáng / tối',
     'nav.back': '← Danh sách phiên',
     'footer.text': '© 2026 TBit SmartID - Ứng dụng điểm danh thông minh. Phát triển bởi',
@@ -181,34 +181,40 @@ const DEFAULTS = {
       + '<h3>Bản quyền</h3><p>Ứng dụng được cung cấp <b>miễn phí</b> cho các đơn vị, tổ chức có nhu cầu điểm danh sự kiện.</p>'
       + '<h3>Tác giả &amp; liên hệ</h3><div class="contact-box"><div class="contact-name">Nguyễn Duy Hiếu</div><div>Liên hệ để được cấp tài khoản sử dụng giải pháp:</div><div>📞 Điện thoại / Zalo: <a href="tel:0972782203">0972782203</a></div><div>✉️ <a href="mailto:hieund@utb.edu.vn">hieund@utb.edu.vn</a> · <a href="mailto:hieu3210@gmail.com">hieu3210@gmail.com</a></div></div>',
     'guide.title': 'Hướng dẫn sử dụng',
-    'guide.sub': 'Toàn bộ chức năng điểm danh trong 5 bước',
-    'guide.body': '<h3><span class="step-n">1</span>Tạo phiên — chọn 1 trong 2 loại</h3><ul>'
-      + '<li>Bấm <b>＋ Tạo phiên mới</b>, đặt tên sự kiện, chọn loại phiên; có thể đặt <b>thời gian tự kết thúc</b> và <b>chu kỳ đổi mã QR</b> riêng (hoặc mã cố định).</li>'
-      + '<li><b>Theo danh sách đã có</b>: tải <b>template Excel</b>, điền danh sách, kéo-thả file — hoặc <b>chọn danh sách đã lưu</b>. Có thể <b>thêm / sửa / xoá</b> từng người và <b>lưu danh sách</b> để dùng lại. Khi tạo, chọn <b>trường bắt buộc để điểm danh</b> (VD chỉ cần SĐT) và có thể bật <b>ghi danh tự do</b>.</li>'
-      + '<li><b>Không theo danh sách (ghi danh tự do)</b>: chọn các trường người tham dự cần điền, đánh dấu trường <b>bắt buộc</b>.</li></ul>'
-      + '<h3><span class="step-n">2</span>Điểm danh bằng QR</h3><ul>'
-      + '<li>Bấm <b>▶ Bắt đầu</b> rồi chiếu mã QR lên màn hình lớn; bộ đếm cập nhật trực tiếp.</li>'
-      + '<li>Người tham dự quét mã → nhập thông tin điểm danh hoặc điền form ghi danh.</li>'
-      + '<li>Mã QR tự đổi theo chu kỳ đã đặt; hết thời gian đã hẹn, phiên <b>tự kết thúc</b> và gửi email tổng hợp cho người tạo.</li></ul>'
-      + '<h3><span class="step-n">3</span>Tích tay &amp; xử lý tình huống</h3><ul>'
-      + '<li>Người không có điện thoại: tìm tên trong mục <b>Tích tay</b> và bấm <b>✓ Có mặt</b>; có thể <b>thêm người mới</b> ngay lúc đang điểm danh.</li>'
-      + '<li>Lượt nghi vấn (một thiết bị điểm danh nhiều người) vào mục <b>⚠ Cần xác nhận</b> — hệ thống ghi rõ trùng với ai để bạn <b>Duyệt</b> hoặc <b>Từ chối</b>.</li></ul>'
-      + '<h3><span class="step-n">4</span>Kết thúc &amp; thống kê</h3><ul>'
-      + '<li>Bấm <b>⏹ Kết thúc</b> (hoặc để hệ thống tự kết thúc đúng giờ) → xem tỉ lệ tham gia, danh sách có mặt / vắng mặt.</li>'
-      + '<li><b>▶ Mở lại phiên</b> để điểm danh tiếp và đặt lại giờ kết thúc; <b>⬇ Xuất Excel</b> tải kết quả.</li></ul>'
-      + '<h3><span class="step-n">5</span>Quản trị hệ thống (quản trị viên)</h3><ul>'
-      + '<li>Menu <b>Quản trị</b>: quản lý người dùng, cấu hình <b>trường danh sách</b>, <b>chu kỳ QR mặc định</b>, <b>SMTP</b> và <b>ngôn ngữ</b>.</li>'
-      + '<li>Quên mật khẩu? Bấm <b>Quên mật khẩu</b> ở màn đăng nhập.</li></ul>',
+    'guide.sub': 'Điểm danh sự kiện chỉ trong 5 bước',
+    'guide.body': '<div class="guide-steps">'
+      + '<div class="guide-step"><div class="g-ico">📝</div><div class="g-body">'
+      + '<div class="g-title"><span class="g-num">1</span>Tạo phiên điểm danh</div>'
+      + '<div class="g-desc">Bấm <b>＋ Tạo phiên mới</b>, đặt tên sự kiện, rồi chọn <b>theo danh sách</b> (tải Excel lên) hoặc <b>ghi danh tự do</b>.</div>'
+      + '</div></div>'
+      + '<div class="guide-step"><div class="g-ico">📺</div><div class="g-body">'
+      + '<div class="g-title"><span class="g-num">2</span>Chiếu mã QR</div>'
+      + '<div class="g-desc">Bấm <b>▶ Bắt đầu</b> và chiếu mã QR lên màn hình lớn. Mã tự đổi liên tục để chống điểm danh hộ.</div>'
+      + '</div></div>'
+      + '<div class="guide-step"><div class="g-ico">📱</div><div class="g-body">'
+      + '<div class="g-title"><span class="g-num">3</span>Người tham dự quét mã</div>'
+      + '<div class="g-desc">Quét QR bằng camera điện thoại, nhập thông tin và xác nhận — không cần cài app. Bộ đếm cập nhật ngay.</div>'
+      + '</div></div>'
+      + '<div class="guide-step"><div class="g-ico">✋</div><div class="g-body">'
+      + '<div class="g-title"><span class="g-num">4</span>Tích tay khi cần</div>'
+      + '<div class="g-desc">Người không có điện thoại: tìm tên ở mục <b>Tích tay</b> rồi bấm <b>✓ Có mặt</b>.</div>'
+      + '</div></div>'
+      + '<div class="guide-step"><div class="g-ico">🏁</div><div class="g-body">'
+      + '<div class="g-title"><span class="g-num">5</span>Kết thúc &amp; xuất kết quả</div>'
+      + '<div class="g-desc">Bấm <b>⏹ Kết thúc</b> để xem tỉ lệ tham gia, danh sách có mặt / vắng và bấm <b>⬇ Xuất Excel</b>.</div>'
+      + '</div></div>'
+      + '</div>'
+      + '<div class="guide-tip">💡 <b>Mẹo:</b> Có thể hẹn giờ <b>tự kết thúc</b> — hết giờ hệ thống tự tổng hợp và gửi email kết quả cho bạn.</div>',
   },
   en: {
     'app.name': 'TBit SmartID',
     'app.tagline': 'Smart event attendance',
     'nav.about': 'About',
     'nav.guide': 'Guide',
-    'nav.admin': 'Admin',
+    'nav.admin': '⚙️ Admin',
     'nav.logout': 'Sign out',
-    'nav.login': 'Sign in',
-    'nav.hello': 'Hi',
+    'nav.login': '🔑 Sign in',
+    'nav.hello': '👋 Hi',
     'nav.theme': 'Light / dark mode',
     'nav.back': '← Sessions',
     'footer.text': '© 2026 TBit SmartID - Smart attendance app. Developed by',
@@ -377,24 +383,30 @@ const DEFAULTS = {
       + '<h3>License</h3><p>The app is provided <b>free</b> for organizations that need event attendance.</p>'
       + '<h3>Author &amp; contact</h3><div class="contact-box"><div class="contact-name">Nguyen Duy Hieu</div><div>Contact to get an account to use the solution:</div><div>📞 Phone / Zalo: <a href="tel:0972782203">0972782203</a></div><div>✉️ <a href="mailto:hieund@utb.edu.vn">hieund@utb.edu.vn</a> · <a href="mailto:hieu3210@gmail.com">hieu3210@gmail.com</a></div></div>',
     'guide.title': 'User guide',
-    'guide.sub': 'All attendance features in 5 steps',
-    'guide.body': '<h3><span class="step-n">1</span>Create a session — pick one of two types</h3><ul>'
-      + '<li>Click <b>＋ New session</b>, name the event, choose the type; you can set an <b>auto-close time</b> and a custom <b>QR rotation period</b> (or a fixed code).</li>'
-      + '<li><b>From a prepared list</b>: download the <b>Excel template</b>, fill in the list, drag-drop the file — or <b>pick a saved list</b>. You can <b>add / edit / delete</b> people and <b>save the list</b> to reuse. On creation, choose the <b>required check-in field(s)</b> (e.g. phone only) and optionally enable <b>self-registration</b>.</li>'
-      + '<li><b>Without a list (self-registration)</b>: choose the fields attendees must fill and mark which are <b>required</b>.</li></ul>'
-      + '<h3><span class="step-n">2</span>Check in with QR</h3><ul>'
-      + '<li>Click <b>▶ Start</b> and display the QR on a big screen; the counter updates live.</li>'
-      + '<li>Attendees scan the code → enter check-in details or fill the registration form.</li>'
-      + '<li>The QR rotates per the set period; when the scheduled time is up, the session <b>auto-closes</b> and emails a summary to the creator.</li></ul>'
-      + '<h3><span class="step-n">3</span>Manual check &amp; edge cases</h3><ul>'
-      + '<li>For people without a phone: find their name under <b>Manual check</b> and click <b>✓ Present</b>; you can <b>add a new person</b> while checking in.</li>'
-      + '<li>Suspicious taps (one device for many people) go to <b>⚠ Needs review</b> — the system shows whom it duplicates so you can <b>Approve</b> or <b>Reject</b>.</li></ul>'
-      + '<h3><span class="step-n">4</span>Finish &amp; statistics</h3><ul>'
-      + '<li>Click <b>⏹ End</b> (or let it auto-close on time) → view participation rate and present / absent lists.</li>'
-      + '<li><b>▶ Reopen</b> to keep checking in and reset the end time; <b>⬇ Export Excel</b> to download results.</li></ul>'
-      + '<h3><span class="step-n">5</span>Administration (admins)</h3><ul>'
-      + '<li><b>Admin</b> menu: manage users, configure <b>list fields</b>, <b>default QR period</b>, <b>SMTP</b> and <b>language</b>.</li>'
-      + '<li>Forgot password? Click <b>Forgot password</b> on the sign-in screen.</li></ul>',
+    'guide.sub': 'Run event attendance in just 5 steps',
+    'guide.body': '<div class="guide-steps">'
+      + '<div class="guide-step"><div class="g-ico">📝</div><div class="g-body">'
+      + '<div class="g-title"><span class="g-num">1</span>Create a session</div>'
+      + '<div class="g-desc">Click <b>＋ New session</b>, name the event, then choose <b>from a list</b> (upload Excel) or <b>self-registration</b>.</div>'
+      + '</div></div>'
+      + '<div class="guide-step"><div class="g-ico">📺</div><div class="g-body">'
+      + '<div class="g-title"><span class="g-num">2</span>Display the QR code</div>'
+      + '<div class="g-desc">Click <b>▶ Start</b> and show the QR on a big screen. It rotates continuously to prevent proxy check-in.</div>'
+      + '</div></div>'
+      + '<div class="guide-step"><div class="g-ico">📱</div><div class="g-body">'
+      + '<div class="g-title"><span class="g-num">3</span>Attendees scan</div>'
+      + '<div class="g-desc">Scan the QR with a phone camera, enter details and confirm — no app needed. The counter updates instantly.</div>'
+      + '</div></div>'
+      + '<div class="guide-step"><div class="g-ico">✋</div><div class="g-body">'
+      + '<div class="g-title"><span class="g-num">4</span>Manual check when needed</div>'
+      + '<div class="g-desc">For people without a phone: find their name under <b>Manual check</b> and click <b>✓ Present</b>.</div>'
+      + '</div></div>'
+      + '<div class="guide-step"><div class="g-ico">🏁</div><div class="g-body">'
+      + '<div class="g-title"><span class="g-num">5</span>Finish &amp; export</div>'
+      + '<div class="g-desc">Click <b>⏹ End</b> to see the participation rate, present / absent lists, then <b>⬇ Export Excel</b>.</div>'
+      + '</div></div>'
+      + '</div>'
+      + '<div class="guide-tip">💡 <b>Tip:</b> Set an <b>auto-close time</b> — when it is up, the system compiles and emails the results to you.</div>',
   },
 };
 
