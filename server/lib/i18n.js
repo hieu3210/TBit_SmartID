@@ -114,6 +114,19 @@ const DEFAULTS = {
     'share.readonly': 'Chỉ người tạo mới thay đổi được danh sách chia sẻ.',
     'share.loading': 'Đang tải…',
 
+    'excused.badge': 'Có phép',
+    'excused.present': 'Có mặt',
+    'excused.absent': 'Vắng',
+    'excused.mark': '📝 Phép',
+    'excused.undo': 'Bỏ phép',
+    'excused.stat': 'Vắng có phép',
+    'excused.listPresent': 'Danh sách có mặt',
+    'excused.listAbsent': 'Danh sách vắng mặt',
+    'excused.listExcused': 'Danh sách vắng có phép',
+
+    'dup.btn': '♻️ Tái sử dụng',
+    'dup.prompt': 'Tên phiên mới (dùng lại thiết lập và danh sách người tham gia):',
+
     'checkin.sub': 'Nhập thông tin để xác nhận có mặt',
     'checkin.subOpen': 'Điền thông tin để ghi danh tham dự sự kiện',
     'checkin.subWalkin': 'Bạn không có trong danh sách — điền thông tin để ghi danh',
@@ -212,7 +225,7 @@ const DEFAULTS = {
       + '</div></div>'
       + '<div class="guide-step"><div class="g-ico">✋</div><div class="g-body">'
       + '<div class="g-title"><span class="g-num">4</span>Tích tay khi cần</div>'
-      + '<div class="g-desc">Người không có điện thoại: tìm tên ở mục <b>Tích tay</b> rồi bấm <b>✓ Có mặt</b>.</div>'
+      + '<div class="g-desc">Người không có điện thoại: tìm tên ở mục <b>Tích tay</b> rồi bấm <b>✓ Có mặt</b>. Người nghỉ có phép thì bấm <b>📝 Phép</b> — làm được cả khi đã kết thúc phiên.</div>'
       + '</div></div>'
       + '<div class="guide-step"><div class="g-ico">🏁</div><div class="g-body">'
       + '<div class="g-title"><span class="g-num">5</span>Kết thúc &amp; xuất kết quả</div>'
@@ -220,7 +233,8 @@ const DEFAULTS = {
       + '</div></div>'
       + '</div>'
       + '<div class="guide-tip">💡 <b>Mẹo:</b> Có thể hẹn giờ <b>tự kết thúc</b> — hết giờ hệ thống tự tổng hợp và gửi email kết quả cho bạn.'
-      + ' Cần người khác cùng lo phiên? Mở phiên rồi bấm <b>👥 Chia sẻ</b> — người được chọn quản lý phiên như chính bạn.</div>',
+      + ' Cần người khác cùng lo phiên? Mở phiên rồi bấm <b>👥 Chia sẻ</b> — người được chọn quản lý phiên như chính bạn.'
+      + ' Sự kiện lặp lại? Bấm <b>♻️ Tái sử dụng</b> để tạo phiên mới dùng lại thiết lập và danh sách người tham gia cũ.</div>',
   },
   en: {
     'app.name': 'TBit SmartID',
@@ -332,6 +346,19 @@ const DEFAULTS = {
     'share.readonly': 'Only the creator can change who this is shared with.',
     'share.loading': 'Loading…',
 
+    'excused.badge': 'Excused',
+    'excused.present': 'Present',
+    'excused.absent': 'Absent',
+    'excused.mark': '📝 Excuse',
+    'excused.undo': 'Un-excuse',
+    'excused.stat': 'Excused absence',
+    'excused.listPresent': 'Present list',
+    'excused.listAbsent': 'Absent list',
+    'excused.listExcused': 'Excused absence list',
+
+    'dup.btn': '♻️ Reuse',
+    'dup.prompt': 'Name for the new session (settings and attendee list are reused):',
+
     'checkin.sub': 'Enter your details to confirm presence',
     'checkin.subOpen': 'Fill in your details to register for the event',
     'checkin.subWalkin': 'You are not on the list — fill in your details to register',
@@ -430,7 +457,7 @@ const DEFAULTS = {
       + '</div></div>'
       + '<div class="guide-step"><div class="g-ico">✋</div><div class="g-body">'
       + '<div class="g-title"><span class="g-num">4</span>Manual check when needed</div>'
-      + '<div class="g-desc">For people without a phone: find their name under <b>Manual check</b> and click <b>✓ Present</b>.</div>'
+      + '<div class="g-desc">For people without a phone: find their name under <b>Manual check</b> and click <b>✓ Present</b>. For an excused absence click <b>📝 Excuse</b> — this also works after the session has ended.</div>'
       + '</div></div>'
       + '<div class="guide-step"><div class="g-ico">🏁</div><div class="g-body">'
       + '<div class="g-title"><span class="g-num">5</span>Finish &amp; export</div>'
@@ -438,7 +465,8 @@ const DEFAULTS = {
       + '</div></div>'
       + '</div>'
       + '<div class="guide-tip">💡 <b>Tip:</b> Set an <b>auto-close time</b> — when it is up, the system compiles and emails the results to you.'
-      + ' Need a colleague to help run the session? Open it and click <b>👥 Share</b> — the people you pick manage it exactly like you.</div>',
+      + ' Need a colleague to help run the session? Open it and click <b>👥 Share</b> — the people you pick manage it exactly like you.'
+      + ' Recurring event? Click <b>♻️ Reuse</b> to create a new session with the same settings and attendee list.</div>',
   },
 };
 

@@ -23,6 +23,7 @@
       <span class="badge closed hidden" id="sharedBadge"></span>
     </div>
     <div class="spacer"></div>
+    <button class="btn secondary small" id="btnDuplicate">♻️ Tái sử dụng</button>
     <button class="btn secondary small hidden" id="btnShare">👥 Chia sẻ</button>
     <button class="btn danger small hidden" id="btnDelete">Xoá phiên</button>
   </div>
@@ -122,11 +123,13 @@
       <div class="stat-row">
         <div class="stat"><div class="num green" id="stPresent">0</div><div class="lbl" id="stPresentLbl">Có mặt</div></div>
         <div class="stat" id="stAbsentBox"><div class="num red" id="stAbsent">0</div><div class="lbl">Vắng mặt</div></div>
+        <div class="stat" id="stExcusedBox"><div class="num amber" id="stExcused">0</div><div class="lbl" id="stExcusedLbl">Vắng có phép</div></div>
         <div class="stat" id="stTotalBox"><div class="num" id="stTotal">0</div><div class="lbl">Tổng số</div></div>
       </div>
       <div class="row">
         <button class="btn green" id="btnListPresent">✓ Danh sách có mặt</button>
         <button class="btn danger" id="btnListAbsent">✗ Danh sách vắng mặt</button>
+        <button class="btn secondary" id="btnListExcused">📝 Danh sách vắng có phép</button>
         <div class="spacer"></div>
         <button class="btn secondary" id="btnStats">↻ Thống kê</button>
       </div>
@@ -143,7 +146,7 @@
       </div>
       <input id="detailSearch" placeholder="Tìm theo tên / CCCD / đơn vị…">
       <div class="table-wrap"><table>
-        <thead><tr><th>STT</th><th>Họ và tên</th><th>Đơn vị</th><th>Thời gian</th><th>Hình thức</th></tr></thead>
+        <thead><tr><th>STT</th><th>Họ và tên</th><th>Đơn vị</th><th>Thời gian</th><th>Hình thức</th><th></th></tr></thead>
         <tbody id="detailBody"></tbody>
       </table></div>
     </div>
@@ -541,16 +544,33 @@ async function renderManualList() {
     return `
     <tr>
       <td><b>${esc(nameOf(a))}</b>${walk}<br><span class="muted">${esc([a.unit, a.phone].filter(Boolean).join(' · '))}</span></td>
-      <td>${a.status === 'present' ? '<span class="badge open">Có mặt</span>' : '<span class="badge draft">Vắng</span>'}</td>
+      <td>${statusBadge(a)}</td>
       <td style="text-align:right;white-space:nowrap;">
         ${a.status === 'present'
-          ? `<button class="btn secondary small" onclick="markAttendee(${a.id},'absent')">Bỏ tích</button>`
+          ? `<button class="btn secondary small" onclick="markAttendee(${a.id},'absent')">Bỏ tích</button>
+             ${excuseBtn(a)}`
           : `<button class="btn green small" onclick="markAttendee(${a.id},'present')">✓ Có mặt</button>
+             ${excuseBtn(a)}
              <button class="btn secondary small" onclick="openMemberModal(${a.id})">Sửa</button>
              <button class="btn danger small" onclick="deleteMember(${a.id})">Xoá</button>`}
       </td>
     </tr>`;
   }).join('');
+}
+
+/* ---------- Vắng có phép ---------- */
+function statusBadge(a) {
+  if (a.status === 'present') return `<span class="badge open">${t('excused.present', 'Có mặt')}</span>`;
+  if (a.status === 'excused') return `<span class="badge supplement">${t('excused.badge', 'Có phép')}</span>`;
+  return `<span class="badge draft">${t('excused.absent', 'Vắng')}</span>`;
+}
+
+// Nút bật/tắt vắng có phép — không áp dụng cho người ghi danh tự do
+function excuseBtn(a) {
+  if (a.self_registered) return '';
+  return a.status === 'excused'
+    ? `<button class="btn secondary small" onclick="markAttendee(${a.id},'absent')">${t('excused.undo', 'Bỏ phép')}</button>`
+    : `<button class="btn secondary small" onclick="markAttendee(${a.id},'excused')">${t('excused.mark', '📝 Phép')}</button>`;
 }
 
 async function removeRegistration(aid) {
@@ -560,8 +580,12 @@ async function removeRegistration(aid) {
 }
 
 async function markAttendee(aid, status) {
-  try { await api(`/api/sessions/${sessionId}/attendees/${aid}/mark`, { method: 'POST', body: { status } }); renderManualList(); }
-  catch (e) { showAlert('alert', e.message); }
+  try {
+    const r = await api(`/api/sessions/${sessionId}/attendees/${aid}/mark`, { method: 'POST', body: { status } });
+    // Phiên đã kết thúc: đang xem thống kê/danh sách chi tiết; còn lại là bảng tích tay
+    if (sess.status === 'closed') { renderStats(r.stats); openDetail(detailStatus, { keepScroll: true }); }
+    else renderManualList();
+  } catch (e) { showAlert('alert', e.message); }
 }
 
 el('btnClose').addEventListener('click', async () => {
@@ -573,16 +597,21 @@ el('btnClose').addEventListener('click', async () => {
 /* ---------- CLOSED ---------- */
 function renderStats(st) {
   const open = isOpenType();
-  // Phiên ghi danh: không có khái niệm vắng/tỉ lệ — chỉ hiện tổng số đã ghi danh
+  // Phiên ghi danh: không có khái niệm vắng/có phép/tỉ lệ — chỉ hiện tổng số đã ghi danh
   el('donutWrap').classList.toggle('hidden', open);
   el('stAbsentBox').classList.toggle('hidden', open);
+  el('stExcusedBox').classList.toggle('hidden', open);
   el('stTotalBox').classList.toggle('hidden', open);
   el('stPresentLbl').textContent = open ? 'Người đã ghi danh' : 'Có mặt';
   el('btnListAbsent').classList.toggle('hidden', open);
+  el('btnListExcused').classList.toggle('hidden', open);
   el('btnListPresent').textContent = open ? '📋 Danh sách ghi danh' : '✓ Danh sách có mặt';
+  el('stExcusedLbl').textContent = t('excused.stat', 'Vắng có phép');
+  el('btnListExcused').textContent = `📝 ${t('excused.listExcused', 'Danh sách vắng có phép')}`;
   el('btnSupplement').textContent = open ? '▶ Mở lại ghi danh' : '▶ Mở lại phiên';
   el('stPresent').textContent = st.present;
   el('stAbsent').textContent = st.absent;
+  el('stExcused').textContent = st.excused || 0;
   el('stTotal').textContent = st.total;
   el('donutPct').textContent = `${st.rate}%`;
   const circumference = 2 * Math.PI * 52;
@@ -597,19 +626,30 @@ el('btnStats').addEventListener('click', async () => {
 let detailStatus = 'present';
 el('btnListPresent').addEventListener('click', () => openDetail('present'));
 el('btnListAbsent').addEventListener('click', () => openDetail('absent'));
+el('btnListExcused').addEventListener('click', () => openDetail('excused'));
 el('detailSearch').addEventListener('input', () => { clearTimeout(manualTimer); manualTimer = setTimeout(() => openDetail(detailStatus), 300); });
 
-async function openDetail(status) {
+const DETAIL_TITLE = {
+  present: () => t('excused.listPresent', 'Danh sách có mặt'),
+  absent: () => t('excused.listAbsent', 'Danh sách vắng mặt'),
+  excused: () => t('excused.listExcused', 'Danh sách vắng có phép'),
+};
+
+async function openDetail(status, { keepScroll = false } = {}) {
   detailStatus = status;
   const q = encodeURIComponent(el('detailSearch').value.trim());
   const rows = await api(`/api/sessions/${sessionId}/attendees?status=${status}&q=${q}`);
-  el('detailTitle').textContent = isOpenType() ? `Danh sách ghi danh (${rows.length})`
-    : status === 'present' ? `Danh sách có mặt (${rows.length})` : `Danh sách vắng mặt (${rows.length})`;
+  el('detailTitle').textContent = isOpenType()
+    ? `Danh sách ghi danh (${rows.length})`
+    : `${DETAIL_TITLE[status]()} (${rows.length})`;
+  // Phiên đã kết thúc vẫn đánh dấu / bỏ đánh dấu vắng có phép được
+  const canExcuse = !isOpenType() && sess.status === 'closed';
   el('detailBody').innerHTML = rows.map((a) => `
     <tr><td>${a.stt}</td><td><b>${esc(nameOf(a))}</b></td><td>${esc(a.unit || '')}</td>
-    <td>${esc(a.checked_in_at || '—')}</td><td>${a.self_registered ? 'Ghi danh tự do' : (TYPE_LABEL[a.checkin_type] || '—')}</td></tr>`).join('');
+    <td>${esc(a.checked_in_at || '—')}</td><td>${a.self_registered ? 'Ghi danh tự do' : (TYPE_LABEL[a.checkin_type] || '—')}</td>
+    <td style="text-align:right;white-space:nowrap;">${canExcuse ? excuseBtn(a) : ''}</td></tr>`).join('');
   show('detailCard');
-  el('detailCard').scrollIntoView({ behavior: 'smooth' });
+  if (!keepScroll) el('detailCard').scrollIntoView({ behavior: 'smooth' });
 }
 
 /* ---------- Mở lại phiên / đổi giờ kết thúc ---------- */
@@ -637,6 +677,18 @@ el('schedSave').addEventListener('click', async () => {
 el('btnToggleOpen').addEventListener('click', async () => {
   try { await api(`/api/sessions/${sessionId}/allow-open`, { method: 'PUT', body: { allow_open: !sess.allow_open } }); load(); }
   catch (e) { showAlert('alert', e.message); }
+});
+
+/* ---------- Tái sử dụng phiên (tạo bản sao) ---------- */
+el('btnDuplicate').textContent = t('dup.btn', '♻️ Tái sử dụng');
+el('btnDuplicate').addEventListener('click', async () => {
+  const name = prompt(t('dup.prompt', 'Tên phiên mới (dùng lại thiết lập và danh sách người tham gia):'), `${sess.name} (bản sao)`);
+  if (name === null) return;
+  clearAlert('alert');
+  try {
+    const r = await api(`/api/sessions/${sessionId}/duplicate`, { method: 'POST', body: { name } });
+    location.href = `/session.html?id=${r.id}`;
+  } catch (e) { showAlert('alert', e.message); }
 });
 
 /* ---------- Chia sẻ phiên ---------- */

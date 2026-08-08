@@ -23,6 +23,13 @@ function parseEndsAt(value, { allowPast = false } = {}) {
   return { endsAt };
 }
 
+// Cộng thêm ms vào một mốc giờ VN 'YYYY-MM-DD HH:mm:ss'. Hai mốc cùng múi giờ nên
+// coi như UTC để tính toán là chính xác (Việt Nam không có giờ mùa hè).
+function asDate(vn) { return new Date(`${String(vn).replace(' ', 'T')}Z`); }
+function shiftVN(base, ms) {
+  return new Date(asDate(base).getTime() + ms).toISOString().slice(0, 19).replace('T', ' ');
+}
+
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -32,10 +39,12 @@ async function statsFor(sessionId) {
   const { rows: [r] } = await query(`
     SELECT COUNT(*)::int AS total,
            COUNT(*) FILTER (WHERE status = 'present')::int AS present,
+           COUNT(*) FILTER (WHERE status = 'excused')::int AS excused,
            COUNT(*) FILTER (WHERE flag = 'review')::int AS flagged
     FROM attendees WHERE session_id = $1`, [sessionId]);
   return {
-    total: r.total, present: r.present, absent: r.total - r.present, flagged: r.flagged,
+    total: r.total, present: r.present, excused: r.excused,
+    absent: r.total - r.present - r.excused, flagged: r.flagged,
     rate: r.total ? Math.round((r.present / r.total) * 1000) / 10 : 0,
   };
 }
@@ -67,20 +76,23 @@ router.get('/', async (req, res, next) => {
     const { rows } = await query(`
       SELECT s.*, u.username AS owner, u.full_name AS owner_name, ${sharedSel},
              (SELECT COUNT(*) FROM session_shares x WHERE x.session_id = s.id)::int AS share_count,
-             COALESCE(a.total, 0) AS total, COALESCE(a.present, 0) AS present, COALESCE(a.flagged, 0) AS flagged
+             COALESCE(a.total, 0) AS total, COALESCE(a.present, 0) AS present,
+             COALESCE(a.excused, 0) AS excused, COALESCE(a.flagged, 0) AS flagged
       FROM sessions s
       JOIN users u ON u.id = s.owner_id
       ${shareJoin}
       LEFT JOIN (
         SELECT session_id, COUNT(*)::int AS total,
                COUNT(*) FILTER (WHERE status = 'present')::int AS present,
+               COUNT(*) FILTER (WHERE status = 'excused')::int AS excused,
                COUNT(*) FILTER (WHERE flag = 'review')::int AS flagged
         FROM attendees GROUP BY session_id
       ) a ON a.session_id = s.id
       ${cond} ORDER BY s.id DESC`, params);
     res.json(rows.map((s) => ({
       ...s,
-      stats: { total: s.total, present: s.present, absent: s.total - s.present, flagged: s.flagged,
+      stats: { total: s.total, present: s.present, excused: s.excused,
+               absent: s.total - s.present - s.excused, flagged: s.flagged,
                rate: s.total ? Math.round((s.present / s.total) * 1000) / 10 : 0 },
     })));
   } catch (e) { next(e); }
@@ -228,6 +240,56 @@ router.put('/:id/shares', loadOwnedSession, requireSessionOwner, async (req, res
   } catch (e) { next(e); }
 });
 
+/* ===== Tái sử dụng phiên (tạo bản sao) ===== */
+
+const MAX_DURATION_MS = 30 * 24 * 3600 * 1000; // độ dài phiên tối đa còn giữ lại khi sao chép
+
+// Bản sao luôn ở trạng thái nháp, thuộc về người bấm sao chép, giữ nguyên thiết lập và
+// danh sách người tham gia (đặt lại về chưa điểm danh). Không đụng gì tới phiên gốc.
+router.post('/:id/duplicate', loadOwnedSession, async (req, res, next) => {
+  const src = req.attSession;
+  let name = String((req.body || {}).name || '').trim() || `${src.name} (bản sao)`;
+  if (name.length > 120) name = name.slice(0, 120);
+
+  // Giờ tự kết thúc: giữ đúng độ dài của phiên cũ nhưng tính từ bây giờ
+  let endsAt = null;
+  if (src.ends_at) {
+    const duration = asDate(src.ends_at) - asDate(src.opened_at || src.created_at);
+    if (duration > 0 && duration <= MAX_DURATION_MS) endsAt = shiftVN(nowVN(), duration);
+  }
+
+  const token = crypto.randomBytes(16).toString('hex');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: [copy] } = await client.query(
+      `INSERT INTO sessions (name, token, owner_id, created_at, type, ends_at, qr_seconds, checkin_fields, allow_open, list_fields, fields)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+      [name, token, req.session.user.id, nowVN(), src.type, endsAt, src.qr_seconds,
+        src.checkin_fields ? JSON.stringify(src.checkin_fields) : null, src.allow_open,
+        src.list_fields ? JSON.stringify(src.list_fields) : null,
+        src.fields ? JSON.stringify(src.fields) : null]);
+
+    // Phiên theo danh sách: chép người tham gia, đánh số lại, trạng thái về mặc định (chưa điểm danh).
+    // Phiên ghi danh tự do: người ghi danh là kết quả của phiên cũ nên bản sao bắt đầu trống.
+    let copied = 0;
+    if (src.type !== 'open') {
+      const r = await client.query(
+        `INSERT INTO attendees (session_id, stt, cccd, full_name, unit, phone, email, extra)
+         SELECT $1, ROW_NUMBER() OVER (ORDER BY stt NULLS LAST, id), cccd, full_name, unit, phone, email, extra
+         FROM attendees WHERE session_id = $2`, [copy.id, src.id]);
+      copied = r.rowCount;
+    }
+    await client.query('COMMIT');
+    client.release();
+    res.json({ id: copy.id, name, copied, ends_at: endsAt });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    client.release();
+    next(e);
+  }
+});
+
 router.delete('/:id', loadOwnedSession, async (req, res, next) => {
   try {
     await query('DELETE FROM sessions WHERE id = $1', [req.attSession.id]); // attendees xoá theo CASCADE
@@ -364,7 +426,7 @@ router.get('/:id/attendees', loadOwnedSession, async (req, res, next) => {
     }
     let sql = 'SELECT * FROM attendees WHERE session_id = $1';
     const params = [req.attSession.id];
-    if (status === 'present' || status === 'absent') { params.push(status); sql += ` AND status = $${params.length}`; }
+    if (status === 'present' || status === 'absent' || status === 'excused') { params.push(status); sql += ` AND status = $${params.length}`; }
     if (q) {
       params.push(`%${q}%`);
       sql += ` AND (full_name ILIKE $${params.length} OR cccd LIKE $${params.length} OR unit ILIKE $${params.length} OR phone LIKE $${params.length})`;
@@ -375,13 +437,22 @@ router.get('/:id/attendees', loadOwnedSession, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// BTC tích tay / bỏ tích
+// BTC tích tay / bỏ tích / đánh dấu vắng có phép
 router.post('/:id/attendees/:aid/mark', loadOwnedSession, async (req, res, next) => {
   try {
     const { status } = req.body || {};
-    if (status !== 'present' && status !== 'absent') return res.status(400).json({ error: 'Trạng thái không hợp lệ' });
+    if (!['present', 'absent', 'excused'].includes(status)) return res.status(400).json({ error: 'Trạng thái không hợp lệ' });
     let r;
-    if (status === 'present') {
+    if (status === 'excused') {
+      // Vắng có phép chỉ áp dụng cho người CÓ trong danh sách; đánh dấu thì xoá luôn dấu điểm danh cũ
+      if (req.attSession.type === 'open') return res.status(400).json({ error: 'Phiên ghi danh tự do không có vắng có phép' });
+      const { rows } = await query('SELECT self_registered FROM attendees WHERE id = $1 AND session_id = $2',
+        [req.params.aid, req.attSession.id]);
+      if (!rows.length) return res.status(404).json({ error: 'Không tìm thấy người trong danh sách' });
+      if (rows[0].self_registered) return res.status(400).json({ error: 'Người ghi danh tự do không áp dụng vắng có phép' });
+      r = await query(`UPDATE attendees SET status = 'excused', checked_in_at = NULL, checkin_type = NULL, flag = 'ok' WHERE id = $1 AND session_id = $2`,
+        [req.params.aid, req.attSession.id]);
+    } else if (status === 'present') {
       r = await query(`UPDATE attendees SET status = 'present', checked_in_at = $1, checkin_type = 'manual', flag = 'ok' WHERE id = $2 AND session_id = $3`,
         [nowVN(), req.params.aid, req.attSession.id]);
     } else {

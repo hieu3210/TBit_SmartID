@@ -386,8 +386,24 @@ el('btnCreateSession').addEventListener('click', async () => {
   } catch (e) { showAlert('listAlert', e.message); }
 });
 
+let sessionById = {}; // tra cứu khi tái sử dụng phiên
+
+// Tạo bản sao: dùng lại thiết lập + danh sách người tham gia của phiên đã có
+async function duplicateSession(id) {
+  const s = sessionById[id];
+  if (!s) return;
+  const name = prompt(t('dup.prompt', 'Tên phiên mới (dùng lại thiết lập và danh sách người tham gia):'), `${s.name} (bản sao)`);
+  if (name === null) return;
+  clearAlert('listAlert');
+  try {
+    const r = await api(`/api/sessions/${id}/duplicate`, { method: 'POST', body: { name } });
+    location.href = `/session.html?id=${r.id}`;
+  } catch (e) { showAlert('listAlert', e.message); }
+}
+
 async function loadSessions() {
   const sessions = await api('/api/sessions');
+  sessionById = Object.fromEntries(sessions.map((s) => [s.id, s]));
   const list = el('sessionList');
   if (!sessions.length) {
     list.innerHTML = `<div class="card" style="text-align:center;color:var(--gray);">${t('sessions.empty')}<br>${t('sessions.emptyHint')}</div>`;
@@ -413,8 +429,10 @@ async function loadSessions() {
           <div class="muted mt" style="margin-top:6px;">
             ${s.type === 'open'
               ? (s.stats.total ? `${t('sessions.registered')} <b>${s.stats.present}</b>` : t('sessions.noReg'))
-              : (s.stats.total ? `${t('sessions.present')} <b>${s.stats.present}</b>/${s.stats.total}` : t('sessions.noList'))}
+              : (s.stats.total ? `${t('sessions.present')} <b>${s.stats.present}</b>/${s.stats.total}${s.stats.excused ? ` · 📝 ${s.stats.excused}` : ''}` : t('sessions.noList'))}
           </div>
+          <button class="btn secondary small" style="margin-top:8px;"
+                  onclick="event.stopPropagation();duplicateSession(${s.id})">${t('dup.btn', '♻️ Tái sử dụng')}</button>
         </div>
       </div>
     </div>`;

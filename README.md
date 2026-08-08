@@ -12,7 +12,9 @@
 - Người tham dự **quét QR Code** bằng camera điện thoại, nhập thông tin theo cấu hình (hoặc điền form ghi danh) — không cần cài app.
 - Sau khi kết thúc có thể **mở lại phiên** để điểm danh tiếp và đặt lại giờ tự kết thúc.
 - **Chống gian lận**: QR động tự đổi mỗi 10 giây (ảnh chụp gửi người vắng hết hạn ngay), ràng buộc thiết bị (một máy điểm danh cho nhiều người sẽ bị gắn cờ ⚠ chờ BTC duyệt), giới hạn tần suất chống dò CCCD.
-- Kết thúc điểm danh xem ngay **thống kê tỉ lệ tham gia**, danh sách có mặt/vắng mặt, hỗ trợ **điểm danh bổ sung** và tích tay.
+- Kết thúc điểm danh xem ngay **thống kê tỉ lệ tham gia**, danh sách có mặt/vắng mặt/vắng có phép, hỗ trợ **điểm danh bổ sung** và tích tay.
+- **Vắng có phép**: ban tổ chức bấm nút **📝 Phép** cho người nghỉ có phép — cả khi đang điểm danh lẫn sau khi đã kết thúc; thống kê, danh sách lọc riêng và file Excel đều tách **Có mặt / Vắng mặt / Vắng có phép**. Người đã đánh dấu có phép mà vẫn đến dự thì quét QR vẫn điểm danh được như bình thường.
+- **Tái sử dụng phiên** (♻️): tạo bản sao của một phiên đã có ngay từ danh sách phiên hoặc trang chi tiết — giữ nguyên thiết lập (loại phiên, trường thông tin, cách điểm danh, chu kỳ QR) và toàn bộ danh sách người tham gia, đặt lại về trạng thái chuẩn bị với giờ giấc tính theo hiện tại. Phiên gốc không bị ảnh hưởng.
 - Hẹn **giờ tự kết thúc** khi tạo phiên — hết giờ hệ thống tự đóng điểm danh và **gửi email tổng hợp** (kèm Excel) cho người tạo.
 - **Lưu danh sách để dùng lại** giữa các phiên; **thêm/sửa/xoá thành viên thủ công** cả khi đang điểm danh (người đã điểm danh không sửa/xoá được).
 - **Chia sẻ phiên và danh sách đã lưu** cho người dùng khác trong hệ thống: người được chia sẻ phiên có **toàn quyền quản lý phiên như người tạo** (upload danh sách, mở/kết thúc, tích tay, xuất Excel, xoá phiên) và cùng nhận email tổng hợp khi phiên tự kết thúc; danh sách được chia sẻ có thể nạp vào phiên của họ. Riêng việc thay đổi *ai được chia sẻ* vẫn thuộc về người tạo (hoặc admin).
@@ -233,7 +235,7 @@ TBit_SmartID/
 │       ├── users.js         # CRUD người dùng (admin) + /directory: danh bạ rút gọn để chọn người chia sẻ
 │       ├── settings.js      # Trường Excel + thiết lập hệ thống (QR, SMTP, email thử)
 │       ├── lists.js         # Danh sách đại biểu lưu sẵn để dùng lại + chia sẻ cho người dùng khác
-│       ├── sessions.js      # Phiên: upload, QR, thống kê, xuất Excel, CRUD thành viên, lưu/nạp danh sách, chia sẻ phiên
+│       ├── sessions.js      # Phiên: upload, QR, thống kê, xuất Excel, CRUD thành viên, lưu/nạp danh sách, chia sẻ, tái sử dụng (bản sao)
 │       └── checkin.js       # API điểm danh/ghi danh công khai (chống gian lận Lớp 1)
 ├── public/                  # Giao diện tĩnh, không cần build
 │   ├── index.html           # Đăng nhập (kèm quên mật khẩu) + danh sách phiên
@@ -253,7 +255,7 @@ TBit_SmartID/
 └── README.md
 ```
 
-**Luồng dữ liệu chính**: `sessions` (phiên, token QR) → `attendees` (danh sách + trạng thái điểm danh, trường bổ sung trong cột JSONB `extra`) → bảng `settings` lưu cấu hình toàn hệ thống (key/value). Quyền truy cập mở rộng qua `session_shares` / `list_shares` (khoá chính `(đối tượng, user_id)`, xoá theo CASCADE khi xoá phiên/danh sách/người dùng).
+**Luồng dữ liệu chính**: `sessions` (phiên, token QR) → `attendees` (danh sách + trạng thái điểm danh `present` / `absent` / `excused`, trường bổ sung trong cột JSONB `extra`) → bảng `settings` lưu cấu hình toàn hệ thống (key/value). Quyền truy cập mở rộng qua `session_shares` / `list_shares` (khoá chính `(đối tượng, user_id)`, xoá theo CASCADE khi xoá phiên/danh sách/người dùng).
 
 ## 5. Hướng dẫn tiếp tục phát triển, phân phối mã nguồn
 

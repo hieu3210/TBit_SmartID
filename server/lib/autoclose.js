@@ -23,10 +23,13 @@ async function maybeAutoClose(session) {
 
 async function statsOf(sessionId) {
   const { rows: [r] } = await query(`
-    SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'present')::int AS present
+    SELECT COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE status = 'present')::int AS present,
+           COUNT(*) FILTER (WHERE status = 'excused')::int AS excused
     FROM attendees WHERE session_id = $1`, [sessionId]);
   return {
-    total: r.total, present: r.present, absent: r.total - r.present,
+    total: r.total, present: r.present, excused: r.excused,
+    absent: r.total - r.present - r.excused,
     rate: r.total ? Math.round((r.present / r.total) * 1000) / 10 : 0,
   };
 }
@@ -49,7 +52,8 @@ async function sendSummary(session) {
   const rows = isOpen
     ? `<tr><td style="padding:4px 12px 4px 0;">Số người đã ghi danh</td><td><b>${stats.present}</b></td></tr>`
     : `<tr><td style="padding:4px 12px 4px 0;">Có mặt</td><td><b style="color:#057a55;">${stats.present}</b> / ${stats.total} (${stats.rate}%)</td></tr>
-       <tr><td style="padding:4px 12px 4px 0;">Vắng mặt</td><td><b style="color:#c81e1e;">${stats.absent}</b></td></tr>`;
+       <tr><td style="padding:4px 12px 4px 0;">Vắng mặt</td><td><b style="color:#c81e1e;">${stats.absent}</b></td></tr>
+       <tr><td style="padding:4px 12px 4px 0;">Vắng có phép</td><td><b style="color:#c27803;">${stats.excused}</b></td></tr>`;
 
   await sendMail({
     to,

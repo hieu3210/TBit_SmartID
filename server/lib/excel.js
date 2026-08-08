@@ -126,6 +126,12 @@ function parseAttendees(buffer, columns = []) {
   return { rows, errors };
 }
 
+function statusOf(a) {
+  if (a.status === 'present') return 'Có mặt';
+  if (a.status === 'excused') return 'Vắng có phép';
+  return 'Vắng';
+}
+
 function formOf(a) {
   if (a.self_registered) return 'Ghi danh tự do';
   if (a.checkin_type === 'qr') return 'QR';
@@ -145,7 +151,7 @@ function buildExport(session, attendees, stats, columns = []) {
   const header = [...cols.map((c) => c.label), 'Trạng thái', 'Thời gian điểm danh', 'Hình thức'];
   const dataRows = [header, ...attendees.map((a) => [
     ...cols.map((c) => cellValue(a, c.key)),
-    a.status === 'present' ? 'Có mặt' : 'Vắng',
+    statusOf(a),
     a.checked_in_at || '',
     formOf(a),
   ])];
@@ -158,7 +164,12 @@ function buildExport(session, attendees, stats, columns = []) {
     ['Thời gian bắt đầu', session.opened_at || ''],
     ['Thời gian kết thúc', session.closed_at || ''],
     [session.type === 'open' ? 'Số người ghi danh' : 'Tổng số', session.type === 'open' ? stats.present : stats.total],
-    ...(session.type === 'open' ? [] : [['Có mặt', stats.present], ['Vắng mặt', stats.absent], ['Tỉ lệ tham gia', `${stats.rate}%`]]),
+    ...(session.type === 'open' ? [] : [
+      ['Có mặt', stats.present],
+      ['Vắng mặt', stats.absent],
+      ['Vắng có phép', stats.excused || 0],
+      ['Tỉ lệ tham gia', `${stats.rate}%`],
+    ]),
   ]);
   statsWs['!cols'] = [{ wch: 22 }, { wch: 30 }];
 
