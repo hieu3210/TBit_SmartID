@@ -20,8 +20,10 @@
       <h2 id="sessionName" style="font-size:20px;">…</h2>
       <span class="badge" id="sessionBadge"></span>
       <span class="badge supplement hidden" id="typeBadge">Ghi danh tự do</span>
+      <span class="badge closed hidden" id="sharedBadge"></span>
     </div>
     <div class="spacer"></div>
+    <button class="btn secondary small hidden" id="btnShare">👥 Chia sẻ</button>
     <button class="btn danger small hidden" id="btnDelete">Xoá phiên</button>
   </div>
 
@@ -210,6 +212,7 @@
 <script src="/js/api.js"></script>
 <script src="/js/fieldconfig.js"></script>
 <script src="/js/shell.js"></script>
+<script src="/js/share.js"></script>
 <script>
 const sessionId = new URLSearchParams(location.search).get('id');
 let sess = null;
@@ -230,6 +233,7 @@ async function load() {
   badge.textContent = STATUS_LABEL[sess.status];
   badge.className = `badge ${sess.status}`;
   el('typeBadge').classList.toggle('hidden', sess.type !== 'open');
+  renderShareState();
   ['draftView', 'openDraftView', 'openView', 'closedView'].forEach(hide);
 
   if (sess.status === 'draft') {
@@ -393,13 +397,20 @@ async function openListModal() {
   clearAlert('listAlert2');
   show('listModal');
   const lists = await api('/api/lists');
-  el('savedListBox').innerHTML = lists.length ? lists.map((l) => `
+  el('savedListBox').innerHTML = lists.length ? lists.map((l) => {
+    // Danh sách của người khác chia sẻ cho mình: chỉ dùng lại, không xoá / chia sẻ tiếp
+    const meta = l.shared_with_me
+      ? `${l.count} người · ${t('share.byOwner', 'Được chia sẻ bởi')} ${esc(l.owner_name || l.owner)}`
+      : `${l.count} người · lưu ${esc(l.created_at)}${l.share_count ? ` · 👥 ${t('share.sharedWith', 'Đã chia sẻ với')} ${l.share_count}` : ''}`;
+    return `
     <div class="row" style="border-bottom:1px solid var(--border);padding:9px 0;">
-      <div><b>${esc(l.name)}</b><br><span class="muted">${l.count} người · lưu ${esc(l.created_at)}</span></div>
+      <div><b>${esc(l.name)}</b>${l.shared_with_me ? ` <span class="badge closed">${t('share.badge', 'Được chia sẻ')}</span>` : ''}<br><span class="muted">${meta}</span></div>
       <div class="spacer"></div>
       <button class="btn small" onclick="useList(${l.id})">Dùng</button>
-      <button class="btn danger small" onclick="deleteSavedList(${l.id})">Xoá</button>
-    </div>`).join('')
+      ${l.shared_with_me ? '' : `<button class="btn secondary small" onclick="shareList(${l.id})">👥</button>
+      <button class="btn danger small" onclick="deleteSavedList(${l.id})">Xoá</button>`}
+    </div>`;
+  }).join('')
     : '<p class="muted">Bạn chưa lưu danh sách nào. Sau khi có danh sách, bấm <b>💾 Lưu danh sách để dùng lại</b>.</p>';
 }
 
@@ -410,6 +421,15 @@ async function useList(id) {
     el('uploadResult').innerHTML = `<div class="alert success">Đã nạp ${r.imported} người từ danh sách đã lưu.</div>`;
     renderPreview();
   } catch (e) { showAlert('listAlert2', e.message); }
+}
+
+function shareList(id) {
+  openSharePicker({
+    title: t('share.list.title', 'Chia sẻ danh sách đã lưu'),
+    subtitle: t('share.list.sub', 'Người được chọn có thể nạp danh sách này vào phiên của họ'),
+    url: `/api/lists/${id}/shares`,
+    onSaved: openListModal,
+  });
 }
 
 async function deleteSavedList(id) {
@@ -618,6 +638,25 @@ el('btnToggleOpen').addEventListener('click', async () => {
   try { await api(`/api/sessions/${sessionId}/allow-open`, { method: 'PUT', body: { allow_open: !sess.allow_open } }); load(); }
   catch (e) { showAlert('alert', e.message); }
 });
+
+/* ---------- Chia sẻ phiên ---------- */
+function renderShareState() {
+  const n = (sess.shares || []).length;
+  const btn = el('btnShare');
+  // Người tạo (và admin) chọn được người chia sẻ; người được chia sẻ chỉ xem danh sách
+  btn.classList.toggle('hidden', !sess.can_manage_shares && !sess.shared_with_me);
+  btn.textContent = n ? `👥 ${t('share.btnText', 'Chia sẻ')} (${n})` : `👥 ${t('share.btnText', 'Chia sẻ')}`;
+  const badge = el('sharedBadge');
+  badge.classList.toggle('hidden', !sess.shared_with_me);
+  badge.textContent = `${t('share.byOwner', 'Được chia sẻ bởi')} ${sess.owner_name || sess.owner || ''}`;
+}
+
+el('btnShare').addEventListener('click', () => openSharePicker({
+  title: t('share.session.title', 'Chia sẻ phiên điểm danh'),
+  subtitle: t('share.session.sub', 'Người được chọn quản lý phiên như người tạo'),
+  url: `/api/sessions/${sessionId}/shares`,
+  onSaved: load,
+}));
 
 el('btnDelete').addEventListener('click', async () => {
   if (!confirm(`Xoá phiên "${sess.name}" và toàn bộ dữ liệu điểm danh?`)) return;

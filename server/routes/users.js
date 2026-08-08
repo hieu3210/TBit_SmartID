@@ -1,9 +1,22 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { query, nowVN } = require('../db');
-const { requireAdmin } = require('../middleware');
+const { requireAuth, requireAdmin } = require('../middleware');
 
 const router = express.Router();
+
+// Danh bạ rút gọn để chọn người khi chia sẻ phiên / danh sách — mọi tài khoản đã đăng
+// nhập đều xem được (không kèm email). Khai báo TRƯỚC requireAdmin bên dưới.
+router.get('/directory', requireAuth, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, username, full_name, role FROM users WHERE id <> $1
+       ORDER BY COALESCE(full_name, username), username`, [req.session.user.id]);
+    res.json(rows);
+  } catch (e) { next(e); }
+});
+
+// Từ đây trở xuống là các API chỉ dành cho quản trị viên
 router.use(requireAdmin);
 
 function validEmail(email) {

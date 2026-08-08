@@ -393,16 +393,23 @@ async function loadSessions() {
     list.innerHTML = `<div class="card" style="text-align:center;color:var(--gray);">${t('sessions.empty')}<br>${t('sessions.emptyHint')}</div>`;
     return;
   }
-  list.innerHTML = sessions.map((s) => `
+  list.innerHTML = sessions.map((s) => {
+    // Phiên người khác chia sẻ: hiện người tạo; phiên của mình: hiện số người đã chia sẻ
+    const ownerName = s.owner_name || s.owner;
+    const meta = [esc(s.created_at)];
+    if (s.shared_with_me) meta.push(`${t('share.byOwner', 'Được chia sẻ bởi')} ${esc(ownerName)}`);
+    else if (me.role === 'admin') meta.push(esc(s.owner));
+    else if (s.share_count) meta.push(`👥 ${t('share.sharedWith', 'Đã chia sẻ với')} ${s.share_count}`);
+    return `
     <div class="card clickable" onclick="location.href='/session.html?id=${s.id}'">
       <div class="row">
         <div>
           <div style="font-weight:700;font-size:16px;">${esc(s.name)}</div>
-          <div class="muted">${esc(s.created_at)}${me.role === 'admin' ? ' · ' + esc(s.owner) : ''}</div>
+          <div class="muted">${meta.join(' · ')}</div>
         </div>
         <div class="spacer"></div>
         <div style="text-align:right;">
-          ${s.type === 'open' ? `<span class="badge supplement">${t('badge.reg')}</span> ` : (s.allow_open ? `<span class="badge supplement">${t('badge.hasReg')}</span> ` : '')}<span class="badge ${s.status}">${STATUS_LABEL[s.status]}</span>
+          ${s.shared_with_me ? `<span class="badge closed">${t('share.badge', 'Được chia sẻ')}</span> ` : ''}${s.type === 'open' ? `<span class="badge supplement">${t('badge.reg')}</span> ` : (s.allow_open ? `<span class="badge supplement">${t('badge.hasReg')}</span> ` : '')}<span class="badge ${s.status}">${STATUS_LABEL[s.status]}</span>
           <div class="muted mt" style="margin-top:6px;">
             ${s.type === 'open'
               ? (s.stats.total ? `${t('sessions.registered')} <b>${s.stats.present}</b>` : t('sessions.noReg'))
@@ -410,7 +417,8 @@ async function loadSessions() {
           </div>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 boot();

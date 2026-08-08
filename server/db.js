@@ -119,6 +119,26 @@ CREATE TABLE IF NOT EXISTS saved_lists (
   data JSONB NOT NULL,
   created_at TEXT NOT NULL
 );
+
+-- Chia sẻ phiên cho người dùng khác: người được chia sẻ quản lý phiên như người tạo
+CREATE TABLE IF NOT EXISTS session_shares (
+  session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (session_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_shares_user ON session_shares(user_id);
+
+-- Chia sẻ danh sách đã lưu: người được chia sẻ nạp được danh sách vào phiên của mình
+CREATE TABLE IF NOT EXISTS list_shares (
+  list_id INTEGER NOT NULL REFERENCES saved_lists(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (list_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_list_shares_user ON list_shares(user_id);
 `;
 
 async function getSetting(key) {

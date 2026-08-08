@@ -3,7 +3,8 @@ const crypto = require('crypto');
 const multer = require('multer');
 const QRCode = require('qrcode');
 const { query, pool, nowVN } = require('../db');
-const { requireAuth, loadOwnedSession } = require('../middleware');
+const { requireAuth, loadOwnedSession, requireSessionOwner } = require('../middleware');
+const { listShares, setShares } = require('../lib/shares');
 const { buildTemplate, parseAttendees, buildExport } = require('../lib/excel');
 const {
   getListFields, enabledColumns, columnsForSession, sessionFieldConfig, formFields,
@@ -54,16 +55,22 @@ router.get('/template', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Phiên của chính mình + phiên được người khác chia sẻ (admin xem tất cả)
 router.get('/', async (req, res, next) => {
   try {
     const u = req.session.user;
-    const cond = u.role === 'admin' ? '' : 'WHERE s.owner_id = $1';
-    const params = u.role === 'admin' ? [] : [u.id];
+    const isAdmin = u.role === 'admin';
+    const params = isAdmin ? [] : [u.id];
+    const shareJoin = isAdmin ? '' : 'LEFT JOIN session_shares sh ON sh.session_id = s.id AND sh.user_id = $1';
+    const cond = isAdmin ? '' : 'WHERE s.owner_id = $1 OR sh.user_id IS NOT NULL';
+    const sharedSel = isAdmin ? 'false AS shared_with_me' : '(sh.user_id IS NOT NULL) AS shared_with_me';
     const { rows } = await query(`
-      SELECT s.*, u.username AS owner,
+      SELECT s.*, u.username AS owner, u.full_name AS owner_name, ${sharedSel},
+             (SELECT COUNT(*) FROM session_shares x WHERE x.session_id = s.id)::int AS share_count,
              COALESCE(a.total, 0) AS total, COALESCE(a.present, 0) AS present, COALESCE(a.flagged, 0) AS flagged
       FROM sessions s
       JOIN users u ON u.id = s.owner_id
+      ${shareJoin}
       LEFT JOIN (
         SELECT session_id, COUNT(*)::int AS total,
                COUNT(*) FILTER (WHERE status = 'present')::int AS present,
@@ -184,12 +191,40 @@ router.get('/:id', loadOwnedSession, async (req, res, next) => {
     const lang = req.query.lang === 'en' ? 'en' : 'vi';
     const s = req.attSession;
     const cfg = sessionFieldConfig(s, await getListFields());
+    const { rows: [owner] } = await query('SELECT username, full_name FROM users WHERE id = $1', [s.owner_id]);
     res.json({
       ...s,
       columns: enabledColumns(cfg, lang),
       field_config: cfg, // cấu hình đầy đủ để chỉnh trong nháp
       stats: await statsFor(s.id),
+      owner: owner ? owner.username : null,
+      owner_name: owner ? owner.full_name : null,
+      shared_with_me: !!req.sessionShared,      // mình được chia sẻ phiên này
+      can_manage_shares: !!req.canManageShares, // được sửa danh sách chia sẻ
+      shares: await listShares('session', s.id),
     });
+  } catch (e) { next(e); }
+});
+
+/* ===== Chia sẻ phiên cho người dùng khác ===== */
+
+// Ai truy cập được phiên cũng xem được danh sách người được chia sẻ
+router.get('/:id/shares', loadOwnedSession, async (req, res, next) => {
+  try {
+    res.json({
+      can_manage: !!req.canManageShares,
+      owner_id: req.attSession.owner_id,
+      shares: await listShares('session', req.attSession.id),
+    });
+  } catch (e) { next(e); }
+});
+
+// Đặt lại toàn bộ danh sách người được chia sẻ (chỉ người tạo phiên / admin)
+router.put('/:id/shares', loadOwnedSession, requireSessionOwner, async (req, res, next) => {
+  try {
+    const s = req.attSession;
+    await setShares('session', s.id, (req.body || {}).user_ids, s.owner_id);
+    res.json({ ok: true, shares: await listShares('session', s.id) });
   } catch (e) { next(e); }
 });
 
@@ -515,8 +550,13 @@ router.post('/:id/use-list', loadOwnedSession, async (req, res, next) => {
     const s = req.attSession;
     if (s.type === 'open') return res.status(400).json({ error: 'Phiên ghi danh không dùng danh sách' });
     if (s.status !== 'draft') return res.status(400).json({ error: 'Chỉ nạp danh sách khi phiên chưa bắt đầu' });
-    const { rows } = await query('SELECT * FROM saved_lists WHERE id = $1 AND owner_id = $2',
-      [(req.body || {}).list_id, req.session.user.id]);
+    // Danh sách của chính mình hoặc được người khác chia sẻ (admin dùng được tất cả)
+    const u = req.session.user;
+    const { rows } = await query(
+      `SELECT sl.* FROM saved_lists sl
+       LEFT JOIN list_shares ls ON ls.list_id = sl.id AND ls.user_id = $2
+       WHERE sl.id = $1 AND (sl.owner_id = $2 OR ls.user_id IS NOT NULL OR $3)`,
+      [(req.body || {}).list_id, u.id, u.role === 'admin']);
     if (!rows.length) return res.status(404).json({ error: 'Không tìm thấy danh sách đã lưu' });
     const members = rows[0].data || [];
 

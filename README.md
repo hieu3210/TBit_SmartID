@@ -15,6 +15,7 @@
 - Kết thúc điểm danh xem ngay **thống kê tỉ lệ tham gia**, danh sách có mặt/vắng mặt, hỗ trợ **điểm danh bổ sung** và tích tay.
 - Hẹn **giờ tự kết thúc** khi tạo phiên — hết giờ hệ thống tự đóng điểm danh và **gửi email tổng hợp** (kèm Excel) cho người tạo.
 - **Lưu danh sách để dùng lại** giữa các phiên; **thêm/sửa/xoá thành viên thủ công** cả khi đang điểm danh (người đã điểm danh không sửa/xoá được).
+- **Chia sẻ phiên và danh sách đã lưu** cho người dùng khác trong hệ thống: người được chia sẻ phiên có **toàn quyền quản lý phiên như người tạo** (upload danh sách, mở/kết thúc, tích tay, xuất Excel, xoá phiên) và cùng nhận email tổng hợp khi phiên tự kết thúc; danh sách được chia sẻ có thể nạp vào phiên của họ. Riêng việc thay đổi *ai được chia sẻ* vẫn thuộc về người tạo (hoặc admin).
 - Chu kỳ đổi QR đặt được **theo phiên** (hoặc mã cố định để in giấy) và **mặc định toàn hệ thống**.
 - Quản lý theo **phiên điểm danh**, dữ liệu lưu trữ lâu dài (PostgreSQL), **xuất Excel** kết quả.
 - **Đăng nhập quản trị**: admin quản lý người dùng (họ tên, email, vai trò), cấu hình **SMTP** để hệ thống gửi email; người dùng **đặt lại mật khẩu qua email**.
@@ -214,8 +215,8 @@ TBit_SmartID/
 ├── vercel.json              # Định tuyến mọi request vào Express
 ├── server/
 │   ├── app.js               # Express, cookie-session, khởi tạo DB; export app
-│   ├── db.js                # Pool PostgreSQL, schema tự tạo, seed admin, bảng settings/saved_lists, giờ VN
-│   ├── middleware.js        # requireAuth/requireAdmin, quyền sở hữu phiên (kèm tự kết thúc), rate-limit
+│   ├── db.js                # Pool PostgreSQL, schema tự tạo, seed admin, bảng settings/saved_lists/*_shares, giờ VN
+│   ├── middleware.js        # requireAuth/requireAdmin, quyền với phiên (chủ sở hữu + được chia sẻ, kèm tự kết thúc), rate-limit
 │   ├── reset-admin.js       # Đặt lại mật khẩu admin
 │   ├── lib/
 │   │   ├── secrets.js       # Dẫn xuất khoá ký cookie + QR + token đặt lại mật khẩu từ SESSION_SECRET
@@ -224,14 +225,15 @@ TBit_SmartID/
 │   │   ├── qrtoken.js       # Mã QR động HMAC (chu kỳ theo phiên, hỗ trợ mã cố định)
 │   │   ├── sysconfig.js     # Thiết lập hệ thống: chu kỳ QR mặc định, SMTP
 │   │   ├── mailer.js        # Gửi email qua SMTP (nodemailer)
-│   │   ├── autoclose.js     # Tự kết thúc phiên hết giờ + email tổng hợp cho người tạo
+│   │   ├── autoclose.js     # Tự kết thúc phiên hết giờ + email tổng hợp cho người tạo và người được chia sẻ
+│   │   ├── shares.js        # Đọc/ghi danh sách người được chia sẻ (phiên & danh sách đã lưu)
 │   │   └── normalize.js     # Chuẩn hoá CCCD/SĐT
 │   └── routes/
 │       ├── auth.js          # Đăng nhập, đổi mật khẩu, quên/đặt lại mật khẩu qua email
-│       ├── users.js         # CRUD người dùng: họ tên, email, vai trò (admin)
+│       ├── users.js         # CRUD người dùng (admin) + /directory: danh bạ rút gọn để chọn người chia sẻ
 │       ├── settings.js      # Trường Excel + thiết lập hệ thống (QR, SMTP, email thử)
-│       ├── lists.js         # Danh sách đại biểu lưu sẵn để dùng lại
-│       ├── sessions.js      # Phiên: upload, QR, thống kê, xuất Excel, CRUD thành viên, lưu/nạp danh sách
+│       ├── lists.js         # Danh sách đại biểu lưu sẵn để dùng lại + chia sẻ cho người dùng khác
+│       ├── sessions.js      # Phiên: upload, QR, thống kê, xuất Excel, CRUD thành viên, lưu/nạp danh sách, chia sẻ phiên
 │       └── checkin.js       # API điểm danh/ghi danh công khai (chống gian lận Lớp 1)
 ├── public/                  # Giao diện tĩnh, không cần build
 │   ├── index.html           # Đăng nhập (kèm quên mật khẩu) + danh sách phiên
@@ -243,6 +245,7 @@ TBit_SmartID/
 │   ├── css/style.css
 │   └── js/
 │       ├── api.js           # Hàm gọi API + tiện ích chung
+│       ├── share.js         # Modal chọn người dùng để chia sẻ phiên / danh sách đã lưu
 │       └── shell.js         # Favicon, logo, footer, menu Giới thiệu/Hướng dẫn (chèn vào mọi trang)
 ├── Dockerfile
 ├── docker-compose.yml       # app + postgres cho localhost / private server
@@ -250,7 +253,7 @@ TBit_SmartID/
 └── README.md
 ```
 
-**Luồng dữ liệu chính**: `sessions` (phiên, token QR) → `attendees` (danh sách + trạng thái điểm danh, trường bổ sung trong cột JSONB `extra`) → bảng `settings` lưu cấu hình toàn hệ thống (key/value).
+**Luồng dữ liệu chính**: `sessions` (phiên, token QR) → `attendees` (danh sách + trạng thái điểm danh, trường bổ sung trong cột JSONB `extra`) → bảng `settings` lưu cấu hình toàn hệ thống (key/value). Quyền truy cập mở rộng qua `session_shares` / `list_shares` (khoá chính `(đối tượng, user_id)`, xoá theo CASCADE khi xoá phiên/danh sách/người dùng).
 
 ## 5. Hướng dẫn tiếp tục phát triển, phân phối mã nguồn
 

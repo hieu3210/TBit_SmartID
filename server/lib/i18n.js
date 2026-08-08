@@ -99,6 +99,21 @@ const DEFAULTS = {
     'badge.hasReg': 'Có ghi danh',
     'badge.walkin': 'Ghi danh thêm',
 
+    'share.badge': 'Được chia sẻ',
+    'share.btnText': 'Chia sẻ',
+    'share.byOwner': 'Được chia sẻ bởi',
+    'share.sharedWith': 'Đã chia sẻ với',
+    'share.session.title': 'Chia sẻ phiên điểm danh',
+    'share.session.sub': 'Người được chọn có toàn quyền quản lý phiên như người tạo',
+    'share.list.title': 'Chia sẻ danh sách đã lưu',
+    'share.list.sub': 'Người được chọn có thể nạp danh sách này vào phiên của họ',
+    'share.searchPh': 'Tìm theo họ tên hoặc tên đăng nhập…',
+    'share.save': '💾 Lưu chia sẻ',
+    'share.none': 'Chưa chia sẻ cho ai.',
+    'share.noUsers': 'Không có người dùng phù hợp.',
+    'share.readonly': 'Chỉ người tạo mới thay đổi được danh sách chia sẻ.',
+    'share.loading': 'Đang tải…',
+
     'checkin.sub': 'Nhập thông tin để xác nhận có mặt',
     'checkin.subOpen': 'Điền thông tin để ghi danh tham dự sự kiện',
     'checkin.subWalkin': 'Bạn không có trong danh sách — điền thông tin để ghi danh',
@@ -204,7 +219,8 @@ const DEFAULTS = {
       + '<div class="g-desc">Bấm <b>⏹ Kết thúc</b> để xem tỉ lệ tham gia, danh sách có mặt / vắng và bấm <b>⬇ Xuất Excel</b>.</div>'
       + '</div></div>'
       + '</div>'
-      + '<div class="guide-tip">💡 <b>Mẹo:</b> Có thể hẹn giờ <b>tự kết thúc</b> — hết giờ hệ thống tự tổng hợp và gửi email kết quả cho bạn.</div>',
+      + '<div class="guide-tip">💡 <b>Mẹo:</b> Có thể hẹn giờ <b>tự kết thúc</b> — hết giờ hệ thống tự tổng hợp và gửi email kết quả cho bạn.'
+      + ' Cần người khác cùng lo phiên? Mở phiên rồi bấm <b>👥 Chia sẻ</b> — người được chọn quản lý phiên như chính bạn.</div>',
   },
   en: {
     'app.name': 'TBit SmartID',
@@ -300,6 +316,21 @@ const DEFAULTS = {
     'badge.reg': 'Registration',
     'badge.hasReg': 'Self-reg on',
     'badge.walkin': 'Walk-in',
+
+    'share.badge': 'Shared with me',
+    'share.btnText': 'Share',
+    'share.byOwner': 'Shared by',
+    'share.sharedWith': 'Shared with',
+    'share.session.title': 'Share attendance session',
+    'share.session.sub': 'Selected people manage the session exactly like its creator',
+    'share.list.title': 'Share saved list',
+    'share.list.sub': 'Selected people can load this list into their own sessions',
+    'share.searchPh': 'Search by full name or username…',
+    'share.save': '💾 Save sharing',
+    'share.none': 'Not shared with anyone yet.',
+    'share.noUsers': 'No matching users.',
+    'share.readonly': 'Only the creator can change who this is shared with.',
+    'share.loading': 'Loading…',
 
     'checkin.sub': 'Enter your details to confirm presence',
     'checkin.subOpen': 'Fill in your details to register for the event',
@@ -406,7 +437,8 @@ const DEFAULTS = {
       + '<div class="g-desc">Click <b>⏹ End</b> to see the participation rate, present / absent lists, then <b>⬇ Export Excel</b>.</div>'
       + '</div></div>'
       + '</div>'
-      + '<div class="guide-tip">💡 <b>Tip:</b> Set an <b>auto-close time</b> — when it is up, the system compiles and emails the results to you.</div>',
+      + '<div class="guide-tip">💡 <b>Tip:</b> Set an <b>auto-close time</b> — when it is up, the system compiles and emails the results to you.'
+      + ' Need a colleague to help run the session? Open it and click <b>👥 Share</b> — the people you pick manage it exactly like you.</div>',
   },
 };
 
